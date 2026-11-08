@@ -1,0 +1,6 @@
+<div style="font-family:system-ui,sans-serif;max-width:480px;margin:auto;color:#111827">
+  <h2 style="color:#14532D">Réinitialisation du mot de passe</h2>
+  <p>Cliquez ci-dessous pour choisir un nouveau mot de passe (lien valable 1 heure) :</p>
+  <p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password" style="display:inline-block;background:#16A34A;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">Choisir un nouveau mot de passe</a></p>
+  <p style="color:#6B7280;font-size:13px">Vous n'avez rien demandé ? Ignorez ce message, votre mot de passe reste inchangé.</p>
+</div>

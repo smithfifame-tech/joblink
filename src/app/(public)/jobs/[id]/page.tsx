@@ -1,0 +1,212 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { BadgeCheck, CalendarDays, Clock, MapPin, Star, Users, Wifi } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ApplyForm } from "@/components/jobs/apply-form";
+import { ReportButton } from "@/components/jobs/report-button";
+import { FavoriteButton } from "@/components/jobs/favorite-button";
+import { ApplicationStatusBadge, JobStatusBadge, PAY_TYPE_LABEL } from "@/components/jobs/status-badge";
+import { CategoryIcon } from "@/components/layout/category-icon";
+import { AreaMap } from "@/components/maps/area-map";
+import { getPublicJob } from "@/services/catalog";
+import { getSessionUser } from "@/lib/auth/session";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { publicEnv, storagePublicUrl } from "@/lib/env";
+import { formatDate, formatRelative, formatXOF } from "@/lib/utils/format";
+import type { Application, PublicProfile } from "@/types/db";
+
+type Params = Promise<{ id: string }>;
+
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  const { id } = await params;
+  const job = await getPublicJob(id).catch(() => null);
+  if (!job) return { title: "Mission introuvable", robots: { index: false } };
+  const description = `${job.category_name} à ${job.city} · ${formatXOF(job.budget_amount)} — ${job.description.slice(0, 140)}`;
+  return {
+    title: job.title,
+    description,
+    alternates: { canonical: `/jobs/${job.id}` },
+    openGraph: { title: job.title, description, type: "article" },
+    robots: job.status === "published" || job.status === "reviewing" ? undefined : { index: false },
+  };
+}
+
+export default async function JobDetailPage({ params }: { params: Params }) {
+  const { id } = await params;
+  const job = await getPublicJob(id);
+  if (!job) notFound();
+
+  const supabase = await getSupabaseServerClient();
+  const user = await getSessionUser();
+  const [{ data: clientRow }, { data: images }, myApp, fav] = await Promise.all([
+    supabase.from("public_profiles").select("*").eq("id", job.client_id).maybeSingle<PublicProfile>(),
+    supabase.from("job_images").select("id, storage_path").eq("job_id", job.id).order("sort_order"),
+    user?.roles.includes("worker")
+      ? supabase.from("applications").select("*").eq("job_id", job.id).eq("worker_id", user.id).maybeSingle<Application>()
+      : Promise.resolve({ data: null }),
+    user
+      ? supabase.from("favorites").select("target_id").eq("user_id", user.id).eq("target_type", "job").eq("target_id", job.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const application = myApp.data as Application | null;
+  const isOwner = user?.id === job.client_id;
+  const isOpen = (job.status === "published" || job.status === "reviewing") && job.deadline >= new Date().toISOString().slice(0, 10);
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: job.title,
+    description: job.description,
+    datePosted: job.published_at ?? job.created_at,
+    validThrough: job.deadline,
+    employmentType: "CONTRACTOR",
+    hiringOrganization: { "@type": "Organization", name: "JOBLINK", sameAs: publicEnv.siteUrl },
+    jobLocationType: job.work_mode === "remote" ? "TELECOMMUTE" : undefined,
+    jobLocation: { "@type": "Place", address: { "@type": "PostalAddress", addressLocality: job.city, addressCountry: job.country_code } },
+    baseSalary: { "@type": "MonetaryAmount", currency: "XOF", value: { "@type": "QuantitativeValue", value: job.budget_amount } },
+  };
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
+      <nav aria-label="Fil d'Ariane" className="mb-4 text-sm text-muted-foreground">
+        <Link href="/jobs" className="hover:text-foreground">Missions</Link> <span aria-hidden>/</span>{" "}
+        <Link href={`/jobs?category=${job.category_slug}`} className="hover:text-foreground">{job.category_name}</Link>
+      </nav>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <article className="grid content-start gap-6">
+          <header>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary"><CategoryIcon name={job.category_icon} /> {job.category_name}</Badge>
+              <JobStatusBadge status={job.status} />
+              {job.work_mode === "remote" && <Badge variant="info"><Wifi /> À distance</Badge>}
+            </div>
+            <h1 className="mt-3 text-2xl font-semibold sm:text-3xl">{job.title}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Publiée {formatRelative(job.published_at ?? job.created_at)} · {job.applications_count} candidature{job.applications_count > 1 ? "s" : ""}</p>
+          </header>
+
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { icon: MapPin, label: "Lieu", value: job.work_mode === "remote" ? "À distance" : `${job.neighborhood}, ${job.city}` },
+              { icon: CalendarDays, label: "Début souhaité", value: formatDate(job.start_date) },
+              { icon: Clock, label: "Date limite", value: formatDate(job.deadline) },
+              { icon: Users, label: "Personnes", value: String(job.workers_needed) },
+            ].map((d) => (
+              <div key={d.label} className="rounded-xl border p-3">
+                <dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><d.icon className="size-3.5" /> {d.label}</dt>
+                <dd className="mt-1 text-sm font-medium">{d.value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <section>
+            <h2 className="text-lg font-semibold">Description</h2>
+            <p className="mt-2 whitespace-pre-line leading-relaxed text-foreground/90">{job.description}</p>
+          </section>
+
+          {job.skills_required.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold">Compétences recherchées</h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {job.skills_required.map((s) => <Badge key={s} variant="outline">{s}</Badge>)}
+              </div>
+            </section>
+          )}
+
+          {(images ?? []).length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold">Photos</h2>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {(images ?? []).map((img) => {
+                  const src = storagePublicUrl("job-images", img.storage_path as string);
+                  return src ? (
+                    <a key={img.id as string} href={src} target="_blank" rel="noopener noreferrer" className="overflow-hidden rounded-lg border">
+                      <Image src={src} alt="Photo de la mission" width={400} height={300} className="aspect-[4/3] w-full object-cover transition-transform hover:scale-105" loading="lazy" />
+                    </a>
+                  ) : null;
+                })}
+              </div>
+            </section>
+          )}
+
+          {job.work_mode === "on_site" && job.approx_lat !== null && job.approx_lng !== null && (
+            <section>
+              <h2 className="text-lg font-semibold">Zone d&apos;intervention</h2>
+              <div className="mt-3 overflow-hidden rounded-xl border">
+                <AreaMap lat={job.approx_lat} lng={job.approx_lng} />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Zone approximative. L&apos;adresse exacte est communiquée au travailleur retenu.</p>
+            </section>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {user && !isOwner && <FavoriteButton targetType="job" targetId={job.id} initial={Boolean(fav.data)} />}
+            {user && !isOwner && <ReportButton targetType="job" targetId={job.id} label="Signaler la mission" />}
+          </div>
+        </article>
+
+        <aside className="grid content-start gap-4 lg:sticky lg:top-24">
+          <Card>
+            <CardHeader>
+              <p className="text-sm text-muted-foreground">Budget</p>
+              <p className="text-3xl font-semibold text-primary-strong tabular-nums">
+                {formatXOF(job.budget_amount)}
+                {job.pay_type !== "fixed" && <span className="text-base font-normal text-muted-foreground"> {PAY_TYPE_LABEL[job.pay_type]}</span>}
+              </p>
+              {job.allow_price_proposal && <p className="text-xs text-muted-foreground">Le client accepte les propositions de prix.</p>}
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              {isOwner ? (
+                <Button asChild size="lg"><Link href={`/client/jobs/${job.id}`}>Gérer ma mission</Link></Button>
+              ) : !isOpen ? (
+                <Alert variant="info">Cette mission n&apos;accepte plus de candidatures.</Alert>
+              ) : !user ? (
+                <div className="grid gap-2">
+                  <Button asChild size="lg"><Link href={`/login?next=/jobs/${job.id}`}>Se connecter pour postuler</Link></Button>
+                  <Button asChild variant="outline"><Link href="/register?type=worker">Créer un compte travailleur</Link></Button>
+                </div>
+              ) : !user.roles.includes("worker") ? (
+                <Alert variant="info">Seuls les comptes travailleurs peuvent postuler.</Alert>
+              ) : application ? (
+                <div className="grid gap-2">
+                  <p className="flex items-center justify-between text-sm">Votre candidature <ApplicationStatusBadge status={application.status} /></p>
+                  <Button asChild variant="outline"><Link href="/worker/applications">Suivre mes candidatures</Link></Button>
+                </div>
+              ) : !user.emailConfirmed ? (
+                <Alert variant="warning">Confirmez votre adresse e-mail pour postuler.</Alert>
+              ) : (
+                <ApplyForm jobId={job.id} budget={job.budget_amount} allowPriceProposal={job.allow_price_proposal} />
+              )}
+            </CardContent>
+          </Card>
+
+          {clientRow && (
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-sm">Publiée par</CardTitle></CardHeader>
+              <CardContent className="flex items-center gap-3">
+                <Avatar className="size-11">
+                  {clientRow.avatar_url && <AvatarImage src={storagePublicUrl("avatars", clientRow.avatar_url) ?? undefined} alt="" />}
+                  <AvatarFallback>{clientRow.first_name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="flex items-center gap-1 font-medium">{clientRow.first_name} {clientRow.last_initial}<BadgeCheck className="size-4 text-primary" aria-label="E-mail vérifié" /></p>
+                  <p className="text-xs text-muted-foreground">Membre depuis {formatDate(clientRow.created_at, "MMMM yyyy")}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          <p className="flex items-start gap-2 px-1 text-xs text-muted-foreground">
+            <Star className="mt-0.5 size-3.5 shrink-0" /> Ne payez jamais en dehors de JOBLINK : vous perdriez la protection du suivi et des litiges.
+          </p>
+        </aside>
+      </div>
+    </div>
+  );
+}
