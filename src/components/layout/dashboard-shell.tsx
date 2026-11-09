@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { LogOut } from "lucide-react";
 import { Logo } from "./logo";
 import { DashboardNav } from "./dashboard-nav";
 import { MobileDashboardNav } from "./mobile-dashboard-nav";
@@ -7,7 +6,7 @@ import { NotificationBell } from "./notification-bell";
 import { UserMenu } from "./user-menu";
 import { NAV, ROLE_LABEL } from "./nav-config";
 import { Alert } from "@/components/ui/alert";
-import { logoutAction } from "@/lib/actions/auth";
+import { LogoutButton } from "@/components/auth/logout";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { storagePublicUrl } from "@/lib/env";
 import type { SessionUser } from "@/lib/auth/session";
@@ -29,11 +28,9 @@ export async function DashboardShell({ user, role, children }: { user: SessionUs
         <div className="flex-1 overflow-y-auto px-3 pb-4">
           <Suspense><DashboardNav items={items} unread={unread} /></Suspense>
         </div>
-        <form action={logoutAction} className="border-t p-3">
-          <button type="submit" className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
-            <LogOut className="size-4" /> Déconnexion
-          </button>
-        </form>
+        <div className="border-t p-3">
+          <LogoutButton className="w-full gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-red-50 hover:text-destructive" />
+        </div>
       </aside>
       <div className="flex min-w-0 flex-col">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b bg-background/90 px-4 backdrop-blur sm:px-6">

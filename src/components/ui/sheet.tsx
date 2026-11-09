@@ -17,10 +17,10 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & { side?: "left" | "right" }) {
   return (
     <SheetPrimitive.Portal>
-      <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+      <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] data-[state=open]:duration-300 data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
       <SheetPrimitive.Content
         className={cn(
-          "fixed inset-y-0 z-50 flex w-[86%] max-w-xs flex-col bg-background shadow-xl transition ease-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-200",
+          "fixed inset-y-0 z-50 flex w-[86%] max-w-xs flex-col bg-background shadow-2xl ease-[cubic-bezier(.22,1,.36,1)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-500 data-[state=closed]:duration-300",
           side === "left"
             ? "left-0 border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left"
             : "right-0 border-l data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",

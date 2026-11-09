@@ -4,6 +4,8 @@ import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource/montserrat/latin-800.css";
 import "@fontsource/montserrat/latin-900.css";
 import { Toaster } from "sonner";
+import { LogoutProvider } from "@/components/auth/logout";
+import { RevealObserver } from "@/components/motion/reveal-observer";
 import { publicEnv } from "@/lib/env";
 import "./globals.css";
 
@@ -40,7 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className={GeistMono.variable}>
       <body className="min-h-dvh">
-        {children}
+        <LogoutProvider>{children}</LogoutProvider>
+        <RevealObserver />
         <Toaster position="top-center" richColors closeButton toastOptions={{ duration: 4500 }} />
       </body>
     </html>

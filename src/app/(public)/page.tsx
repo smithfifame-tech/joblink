@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -14,7 +15,8 @@ import { ConfigNotice } from "@/components/layout/config-notice";
 import { FaqList, FAQ_ITEMS } from "@/components/layout/faq-list";
 import { LogoMark } from "@/components/layout/logo";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { HeroBackdrop, HeroPhotoCard } from "@/components/home/hero-visual";
+import { HeroOrbit } from "@/components/home/hero-orbit";
+import { CountUp } from "@/components/motion/count-up";
 import { SectionHeading } from "@/components/home/section-heading";
 import { TalentMosaic } from "@/components/home/talent-mosaic";
 import { getCategories, getCategoryCounts, getPublicStats, getRecentJobs } from "@/services/catalog";
@@ -46,6 +48,25 @@ const TRUST = [
   { icon: Wallet, label: "5 % seulement, aucun frais caché" },
 ];
 
+function AnimatedWords({ text, start = 0, step = 70 }: { text: string; start?: number; step?: number }) {
+  const words = text.split(" ");
+  return (
+    <>
+      <span className="sr-only">{text}</span>
+      <span aria-hidden>
+        {words.map((w, i) => (
+          <Fragment key={i}>
+            <span className="jl-word">
+              <span style={{ animationDelay: `${start + i * step}ms` }}>{w}</span>
+            </span>
+            {i < words.length - 1 ? " " : ""}
+          </Fragment>
+        ))}
+      </span>
+    </>
+  );
+}
+
 export default async function HomePage() {
   const [categories, jobs, stats, counts, reviews] = await Promise.all([
     getCategories().catch(() => []),
@@ -62,72 +83,93 @@ export default async function HomePage() {
 
       {/* ───────────── HERO ───────────── */}
       <section className="relative isolate overflow-hidden bg-white">
-        <div aria-hidden className="absolute inset-0 -z-20 bg-[radial-gradient(50rem_30rem_at_0%_0%,#f0fdf4_0%,transparent_60%),radial-gradient(40rem_30rem_at_-10%_110%,#ecfdf3_0%,transparent_60%)]" />
-        <div aria-hidden className="jl-dots absolute inset-y-0 left-0 -z-20 w-1/2 opacity-50 [mask-image:radial-gradient(ellipse_at_top_left,#000_20%,transparent_70%)]" />
-        <HeroBackdrop />
-        <div className="mx-auto flex max-w-7xl items-center px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:min-h-[700px] lg:pb-24 lg:pt-16">
-          <div className="min-w-0 animate-fade-up lg:max-w-[47%]">
-            <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 py-1 pl-1 pr-3 text-xs font-medium text-primary-strong shadow-sm backdrop-blur">
-              <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-white">Bénin</span>
-              Missions et services près de chez vous
-            </p>
-            <h1 className="mt-6 text-balance text-[2.5rem] font-extrabold leading-[1.05] tracking-[-0.02em] [word-spacing:0.06em] sm:text-6xl lg:text-[3.6rem]">
-              Trouvez du travail. Trouvez les bonnes personnes.{" "}
-              <span className="relative inline-block text-primary">
-                Près de chez vous.
-                <svg aria-hidden viewBox="0 0 300 16" preserveAspectRatio="none" className="absolute -bottom-2 left-0 h-3 w-full text-primary/35">
-                  <path d="M2 12C80 3 210 1 298 7" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
-                </svg>
-              </span>
-            </h1>
-            <p className="mt-7 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
-              JOBLINK met en relation les personnes qui ont besoin d&apos;un service avec les travailleurs disponibles
-              autour d&apos;elles : plomberie, électricité, ménage, livraison, numérique et bien plus.
-            </p>
+        <div aria-hidden className="absolute inset-0 -z-20 bg-[radial-gradient(60rem_34rem_at_50%_-8%,#dcfce7_0%,#f0fdf4_38%,transparent_70%)]" />
+        <div aria-hidden className="jl-grid absolute inset-0 -z-20 opacity-70 [mask-image:radial-gradient(ellipse_70%_60%_at_50%_30%,#000_25%,transparent_75%)]" />
 
-            <SearchBar className="mt-8 max-w-2xl" />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 pt-10 text-center sm:px-6 sm:pt-16 lg:pt-20">
+          <p className="jl-rise inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 py-1 pl-1 pr-3 text-xs font-medium text-primary-strong shadow-sm backdrop-blur">
+            <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-white">Bénin</span>
+            Missions et services géolocalisés
+          </p>
+
+          <h1 className="mx-auto mt-6 max-w-6xl text-balance text-[2.3rem] font-extrabold leading-[1.05] tracking-[-0.03em] [word-spacing:0.05em] sm:text-6xl lg:text-[4.1rem]">
+            <AnimatedWords text="Le travail près de vous," start={120} />
+            <br />
+            <span className="relative inline-block text-primary">
+              <AnimatedWords text="les opportunités à portée de main." start={420} />
+              <svg aria-hidden viewBox="0 0 320 18" preserveAspectRatio="none" className="absolute -bottom-3 left-[6%] h-3.5 w-[88%] text-primary/30">
+                <path
+                  d="M3 13C90 3 230 1 317 8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray="320"
+                  className="animate-[underline-draw_1.2s_cubic-bezier(.22,1,.36,1)_1.1s_both]"
+                />
+              </svg>
+            </span>
+          </h1>
+
+          <p className="jl-rise mx-auto mt-7 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground [animation-delay:700ms]">
+            Vous êtes au centre. JOBLINK fait apparaître les plombiers, électriciens, couturiers, aides ménagères
+            et talents du numérique disponibles autour de vous.
+          </p>
+
+          <div className="jl-rise mx-auto mt-8 max-w-2xl text-left [animation-delay:850ms]">
+            <SearchBar />
             <CityDatalist />
+          </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
-              <Link href="/client/jobs/new" className="group inline-flex items-center gap-1.5 font-semibold text-primary-strong">
-                Publier une mission gratuitement
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
-              <Link href="/register?type=worker" className="font-medium text-muted-foreground hover:text-foreground">
-                Je suis travailleur
-              </Link>
-            </div>
-
-            {stats && (
-              <dl className="mt-10 flex max-w-xl divide-x divide-border rounded-2xl border border-border/80 bg-white/70 py-4 shadow-[var(--shadow-soft)] backdrop-blur">
-                {[
-                  { label: "Missions ouvertes", value: stats.open_jobs },
-                  { label: "Travailleurs inscrits", value: stats.workers },
-                  { label: "Missions réalisées", value: stats.completed_jobs },
-                ].map((s) => (
-                  <div key={s.label} className="flex flex-1 flex-col-reverse px-3 text-center sm:px-5 sm:text-left">
-                    <dt className="mt-0.5 text-xs text-muted-foreground">{s.label}</dt>
-                    <dd className="text-2xl font-extrabold tabular-nums tracking-tight text-foreground">{s.value.toLocaleString("fr-FR")}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-
-            <HeroPhotoCard />
+          <div className="jl-rise mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm [animation-delay:950ms]">
+            <Link href="/client/jobs/new" className="group inline-flex items-center gap-1.5 font-semibold text-primary-strong">
+              Publier une mission gratuitement
+              <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Link>
+            <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
+            <Link href="/register?type=worker" className="font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Je propose mes services
+            </Link>
           </div>
         </div>
+
+        <div className="relative z-0 mt-6 px-2 sm:mt-0 sm:px-6 lg:-mt-2">
+          <HeroOrbit />
+        </div>
+
+        {stats && (
+          <dl className="jl-rise mx-auto mb-12 mt-16 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-4 text-sm text-muted-foreground [animation-delay:1.3s] sm:mt-14">
+            <span className="inline-flex items-center gap-2 font-medium text-primary-strong">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
+                <span className="relative inline-flex size-2 rounded-full bg-primary" />
+              </span>
+              En direct
+            </span>
+            {[
+              { label: "missions ouvertes", value: stats.open_jobs },
+              { label: "travailleurs inscrits", value: stats.workers },
+              { label: "missions réalisées", value: stats.completed_jobs },
+            ].map((s) => (
+              <div key={s.label} className="flex items-baseline gap-1.5">
+                <dd className="text-lg font-extrabold tabular-nums text-foreground"><CountUp value={s.value} /></dd>
+                <dt>{s.label}</dt>
+              </div>
+            ))}
+          </dl>
+        )}
       </section>
 
-      {/* ───────────── BANDEAU CONFIANCE ───────────── */}
-      <section aria-label="Engagements JOBLINK" className="border-y border-border/70 bg-white">
-        <ul className="mx-auto grid max-w-7xl grid-cols-2 gap-px bg-border/60 lg:grid-cols-4">
-          {TRUST.map((t) => (
-            <li key={t.label} className="flex items-center gap-3 bg-white px-4 py-5 text-sm font-medium text-foreground sm:px-6">
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-primary">
+      {/* ───────────── BANDEAU DÉFILANT ───────────── */}
+      <section aria-label="Engagements JOBLINK" className="jl-marquee-wrap relative overflow-hidden border-y border-border/70 bg-white py-4 [mask-image:linear-gradient(to_right,transparent,#000_8%,#000_92%,transparent)]">
+        <ul className="jl-marquee flex w-max items-center gap-10">
+          {[...TRUST, ...TRUST, ...TRUST, ...TRUST].map((t, i) => (
+            <li key={i} aria-hidden={i >= TRUST.length} className="flex shrink-0 items-center gap-3 text-sm font-medium text-foreground">
+              <span className="grid size-8 place-items-center rounded-full bg-accent text-primary">
                 <t.icon className="size-4" aria-hidden />
               </span>
               {t.label}
+              <span aria-hidden className="ml-7 text-primary/40">✦</span>
             </li>
           ))}
         </ul>
@@ -147,12 +189,13 @@ export default async function HomePage() {
           }
         />
         <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {categories.slice(0, 12).map((c) => {
+          {categories.slice(0, 12).map((c, i) => {
             const n = counts[c.slug] ?? 0;
             return (
               <Link
                 key={c.id}
                 href={`/jobs?category=${c.slug}`}
+                data-reveal="" style={{ "--reveal-delay": `${(i % 6) * 70}ms` } as React.CSSProperties}
                 className="group relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-border/80 bg-white p-4 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-[var(--shadow-lift)]"
               >
                 <span className="grid size-11 place-items-center rounded-xl bg-accent text-primary ring-1 ring-primary/10 transition-colors duration-300 group-hover:bg-primary group-hover:text-white">
@@ -177,7 +220,7 @@ export default async function HomePage() {
           title="Des mains expertes, à quelques rues de chez vous"
           description="Artisans, techniciens, couturiers, bâtisseurs : JOBLINK donne de la visibilité aux talents de votre quartier."
         />
-        <div className="mt-10">
+        <div className="mt-10" data-reveal="">
           <TalentMosaic />
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Photos d&apos;illustration.</p>
@@ -200,8 +243,10 @@ export default async function HomePage() {
             />
             {jobs.length > 0 ? (
               <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {jobs.map((job) => (
-                  <JobCard key={job.id} job={job} />
+                {jobs.map((job, i) => (
+                  <div key={job.id} data-reveal="" style={{ "--reveal-delay": `${(i % 3) * 90}ms` } as React.CSSProperties}>
+                    <JobCard job={job} />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -236,6 +281,7 @@ export default async function HomePage() {
           ].map((col, idx) => (
             <div
               key={col.tag}
+              data-reveal="" style={{ "--reveal-delay": `${idx * 120}ms` } as React.CSSProperties}
               className={
                 idx === 0
                   ? "rounded-[1.75rem] border border-border/80 bg-white p-6 shadow-[var(--shadow-soft)] sm:p-8"
@@ -272,7 +318,7 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 sm:pb-24" aria-labelledby="why-title">
         <SectionHeading id="why-title" eyebrow="Pourquoi JOBLINK" title="La confiance, conçue dès le départ" />
         <div className="mt-10 grid gap-4 md:grid-cols-6">
-          <div className="relative overflow-hidden rounded-[1.75rem] border border-primary/15 bg-gradient-to-br from-[#ecfdf3] to-white p-7 md:col-span-6 lg:col-span-4 lg:row-span-2 md:p-9">
+          <div data-reveal="" className="relative overflow-hidden rounded-[1.75rem] border border-primary/15 bg-gradient-to-br from-[#ecfdf3] to-white p-7 md:col-span-6 lg:col-span-4 lg:row-span-2 md:p-9">
             <div aria-hidden className="jl-grid absolute inset-0 opacity-70" />
             <div className="relative max-w-sm">
               <span className="grid size-11 place-items-center rounded-xl bg-primary text-white shadow-[0_8px_20px_-6px_rgb(22_163_74/0.6)]">
@@ -303,6 +349,7 @@ export default async function HomePage() {
           ].map((r, i) => (
             <div
               key={r.title}
+              data-reveal="" style={{ "--reveal-delay": `${100 + i * 90}ms` } as React.CSSProperties}
               className={`rounded-[1.75rem] border border-border/80 bg-white p-6 shadow-[var(--shadow-soft)] md:col-span-3 ${i < 2 ? "lg:col-span-2" : "lg:col-span-3"}`}
             >
               <span className="grid size-10 place-items-center rounded-xl bg-accent text-primary">
@@ -353,7 +400,7 @@ export default async function HomePage() {
           </div>
           <div className="relative isolate">
             <div aria-hidden className="absolute -inset-y-6 inset-x-0 -z-10 rounded-[2.5rem] sm:-inset-x-6 bg-gradient-to-br from-accent to-transparent" />
-            <div className="mx-auto max-w-md rounded-[1.75rem] border border-border/80 bg-white p-7 shadow-[var(--shadow-lift)]">
+            <div data-reveal="" className="mx-auto max-w-md rounded-[1.75rem] border border-border/80 bg-white p-7 shadow-[var(--shadow-lift)] transition-transform duration-500 hover:-translate-y-1 hover:rotate-[-0.5deg]">
               <div className="flex items-center justify-between">
                 <p className="flex items-center gap-2 text-sm font-semibold">
                   <Banknote className="size-4 text-primary" /> Exemple de calcul
@@ -383,7 +430,7 @@ export default async function HomePage() {
           <SectionHeading id="reviews-title" eyebrow="Avis vérifiés" title="Ils ont utilisé JOBLINK" />
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {reviews.map((r) => (
-              <figure key={r.id} className="rounded-[1.75rem] border border-border/80 bg-white p-7 shadow-[var(--shadow-soft)]">
+              <figure key={r.id} data-reveal="" className="rounded-[1.75rem] border border-border/80 bg-white p-7 shadow-[var(--shadow-soft)]">
                 <div className="flex gap-0.5" aria-label={`${r.rating} sur 5`}>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} className={`size-4 ${i < r.rating ? "fill-amber-400 text-amber-400" : "text-gray-300"}`} aria-hidden />
@@ -401,7 +448,7 @@ export default async function HomePage() {
 
       {/* ───────────── CTA ───────────── */}
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-        <div className="relative isolate overflow-hidden rounded-[2rem] bg-primary-strong px-6 py-14 text-white sm:px-14 sm:py-16">
+        <div data-reveal="" className="relative isolate overflow-hidden rounded-[2rem] bg-primary-strong px-6 py-14 text-white sm:px-14 sm:py-16">
           <div aria-hidden className="absolute inset-y-0 right-0 -z-10 hidden w-[46%] lg:block">
             <Image src={PHOTOS.ladder.src} alt="" fill sizes="40vw" className="object-cover object-[50%_30%] opacity-90" />
             <div className="absolute inset-0 bg-gradient-to-r from-primary-strong via-primary-strong/60 to-primary-strong/10" />

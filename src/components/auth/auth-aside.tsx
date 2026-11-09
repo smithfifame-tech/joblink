@@ -37,7 +37,7 @@ export function AuthAside() {
   return (
     <aside className="relative hidden p-4 lg:block">
       <div className="sticky top-4 isolate flex h-[calc(100dvh-2rem)] min-h-[560px] flex-col justify-between overflow-hidden rounded-[2rem] p-10 text-white shadow-[var(--shadow-lift)]">
-        <Image src={v.photo.src} alt={v.photo.alt} fill priority sizes="50vw" className={`-z-10 object-cover ${v.position}`} />
+        <Image key={v.photo.src} src={v.photo.src} alt={v.photo.alt} fill priority sizes="50vw" className={`-z-10 object-cover ${v.position} animate-[kenburns_14s_cubic-bezier(.22,1,.36,1)_both]`} />
         <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-[#0b2e1a] via-[#0b2e1a]/45 to-[#0b2e1a]/10" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-[#14532d]/15 mix-blend-multiply" />
 
@@ -49,7 +49,7 @@ export function AuthAside() {
           </span>
         </Link>
 
-        <div className="max-w-lg">
+        <div className="jl-rise max-w-lg [animation-delay:200ms]">
           <p className="text-balance text-4xl font-extrabold leading-[1.1] tracking-[-0.02em] text-white [word-spacing:0.04em]">{v.title}</p>
           <ul className="mt-7 grid gap-3 text-[15px] text-white/90">
             {v.points.map((t) => (

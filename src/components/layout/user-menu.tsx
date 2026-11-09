@@ -4,9 +4,10 @@ import Link from "next/link";
 import { ChevronDown, Home, LogOut, Settings, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { logoutAction } from "@/lib/actions/auth";
+import { useLogout } from "@/components/auth/logout";
 
 export function UserMenu({ name, email, avatar, profileHref, settingsHref }: { name: string; email: string; avatar: string | null; profileHref: string; settingsHref: string }) {
+  const { logout } = useLogout();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg p-1 pr-2 transition-colors hover:bg-muted" aria-label="Menu du compte">
@@ -27,11 +28,9 @@ export function UserMenu({ name, email, avatar, profileHref, settingsHref }: { n
         <DropdownMenuItem asChild><Link href={settingsHref}><Settings /> Paramètres</Link></DropdownMenuItem>
         <DropdownMenuItem asChild><Link href="/"><Home /> Site public</Link></DropdownMenuItem>
         <DropdownMenuSeparator />
-        <form action={logoutAction}>
-          <DropdownMenuItem asChild>
-            <button type="submit" className="w-full text-destructive"><LogOut className="!text-destructive" /> Déconnexion</button>
-          </DropdownMenuItem>
-        </form>
+        <DropdownMenuItem onSelect={() => logout()} className="text-destructive focus:text-destructive">
+          <LogOut className="!text-destructive" /> Déconnexion
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

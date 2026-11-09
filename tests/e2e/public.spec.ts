@@ -4,7 +4,7 @@ test.describe("site public", () => {
   test("page d'accueil : hero, recherche et navigation", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(/JOBLINK/);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Trouvez du travail");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Le travail près de vous");
     await expect(page.getByRole("search")).toBeVisible();
     const nav = page.getByRole("navigation", { name: "Navigation principale" });
     await expect(nav.getByRole("link", { name: "Trouver une mission" })).toBeVisible();

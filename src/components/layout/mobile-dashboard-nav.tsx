@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DashboardNav } from "./dashboard-nav";
 import { Logo } from "./logo";
+import { LogoutButton } from "@/components/auth/logout";
 import type { NavItem } from "./nav-config";
 
 export function MobileDashboardNav({ items, title, unread }: { items: NavItem[]; title: string; unread: number }) {
@@ -21,7 +22,13 @@ export function MobileDashboardNav({ items, title, unread }: { items: NavItem[];
         <SheetTitle className="sr-only">{title}</SheetTitle>
         <div className="border-b px-5 py-4"><Logo /></div>
         <p className="px-6 pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-        <div className="overflow-y-auto px-3 pb-6"><DashboardNav items={items} unread={unread} onNavigate={() => setOpen(false)} /></div>
+        <div className="flex-1 overflow-y-auto px-3 pb-6"><DashboardNav items={items} unread={unread} onNavigate={() => setOpen(false)} /></div>
+        <div className="border-t p-3">
+          <LogoutButton
+            onDone={() => setOpen(false)}
+            className="w-full gap-3 rounded-lg px-3 py-3 text-base text-destructive transition-colors hover:bg-red-50"
+          />
+        </div>
       </SheetContent>
     </Sheet>
   );

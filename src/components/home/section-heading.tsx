@@ -19,7 +19,7 @@ export function SectionHeading({
 }) {
   const center = align === "center";
   return (
-    <div className={cn("flex flex-col gap-4", !center && "sm:flex-row sm:items-end sm:justify-between", className)}>
+    <div data-reveal="" className={cn("flex flex-col gap-4", !center && "sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className={cn("max-w-2xl", center && "mx-auto text-center")}>
         {eyebrow && (
           <p className={cn("inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary", center && "justify-center")}>
