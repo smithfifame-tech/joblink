@@ -8,11 +8,14 @@ import { cn } from "@/lib/utils";
 
 const photo = PHOTOS.tailorPhone;
 
-const FADE_MASK: React.CSSProperties = {
-  maskImage: "linear-gradient(to right, transparent 42%, #000 64%), linear-gradient(to top, transparent 0%, #000 22%)",
-  WebkitMaskImage: "linear-gradient(to right, transparent 42%, #000 64%), linear-gradient(to top, transparent 0%, #000 22%)",
-  maskComposite: "intersect",
-  WebkitMaskComposite: "source-in",
+// Deux masques imbriqués (horizontal puis vertical) : pas de dépendance à mask-composite.
+const FADE_X: React.CSSProperties = {
+  maskImage: "linear-gradient(to right, transparent 40%, #000 66%)",
+  WebkitMaskImage: "linear-gradient(to right, transparent 40%, #000 66%)",
+};
+const FADE_Y: React.CSSProperties = {
+  maskImage: "linear-gradient(to top, transparent 0%, #000 24%)",
+  WebkitMaskImage: "linear-gradient(to top, transparent 0%, #000 24%)",
 };
 
 function MissionCard({ className }: { className?: string }) {
@@ -82,9 +85,11 @@ export function HeroBackdrop() {
   return (
     <>
       {/* Calque photo pleine largeur, masqué : la photo n'occupe que la droite et se fond sans arête dans le fond. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 hidden lg:block" style={FADE_MASK}>
-        <div className="absolute inset-y-0 right-0 w-[60%]">
-          <Image src={photo.src} alt="" fill priority sizes="60vw" className="object-cover object-[35%_center]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 hidden lg:block" style={FADE_X}>
+        <div className="absolute inset-0" style={FADE_Y}>
+          <div className="absolute inset-y-0 right-0 w-[62%]">
+            <Image src={photo.src} alt="" fill priority sizes="62vw" className="object-cover object-[35%_center]" />
+          </div>
         </div>
       </div>
 
