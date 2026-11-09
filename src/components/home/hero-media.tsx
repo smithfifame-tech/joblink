@@ -15,7 +15,7 @@ type Quality = "sm" | "md" | "lg";
  * (5 passages de 4 s en fondu enchaîné), puis la photo revient en fondu avec son effet Ken Burns.
  *
  * - Pas de vidéo si l'utilisateur préfère réduire les animations, active l'économie de données
- *   ou a une connexion lente : la photo s'affiche directement.
+ *   ou est en 2G : la photo s'affiche directement. En 3G, clips en 640×360.
  * - Si la vidéo ne démarre pas (réseau, lecture automatique bloquée), retour immédiat à la photo.
  * - Bouton « Passer la vidéo » ; les fichiers vidéo sont libérés une fois la photo affichée.
  */
@@ -35,13 +35,14 @@ export function HeroMedia({ photo }: { photo: Photo }) {
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-    const slow = conn?.saveData === true || /(^|-)(2g|3g)$/.test(conn?.effectiveType ?? "");
-    if (reduce || slow) {
+    const type = conn?.effectiveType ?? "";
+    // Économie de données ou 2G : photo seule. En 3G (fréquent au Bénin) : vidéo en qualité légère.
+    if (reduce || conn?.saveData === true || type === "2g" || type === "slow-2g") {
       setPhase("photo");
       return;
     }
     const w = window.innerWidth;
-    setQuality(w < 768 ? "sm" : w >= 1600 ? "lg" : "md");
+    setQuality(w < 768 || type === "3g" ? "sm" : w >= 1600 ? "lg" : "md");
 
     const begin = () => setLoaded(1); // premier clip + préchargement du suivant
     if (!document.hidden) {
@@ -71,9 +72,11 @@ export function HeroMedia({ photo }: { photo: Photo }) {
 
     let done = false;
     let started = false;
+    let stall = 0;
     const next = () => {
       if (done) return;
       done = true;
+      window.clearTimeout(stall);
       v.pause();
       if (active + 1 >= HERO_CLIPS.length) toPhoto();
       else setActive(active + 1);
@@ -87,6 +90,7 @@ export function HeroMedia({ photo }: { photo: Photo }) {
     };
     const onPlaying = () => {
       started = true;
+      window.clearTimeout(stall);
       if (phaseRef.current === "intro") setPhase("video");
     };
     const onTime = () => {
@@ -98,6 +102,13 @@ export function HeroMedia({ photo }: { photo: Photo }) {
       else next();
     };
 
+    // Mise en mémoire tampon trop longue en cours de passage : on passe au clip suivant.
+    const onWaiting = () => {
+      if (!started) return;
+      window.clearTimeout(stall);
+      stall = window.setTimeout(next, 3000);
+    };
+
     v.muted = true;
     if (v.readyState >= 1) seek();
     else v.addEventListener("loadedmetadata", seek, { once: true });
@@ -105,6 +116,7 @@ export function HeroMedia({ photo }: { photo: Photo }) {
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("ended", next);
     v.addEventListener("error", onFail);
+    v.addEventListener("waiting", onWaiting);
     v.play().catch(() => undefined); // lecture automatique refusée : le délai de garde prend le relais
 
     const watchdog = window.setTimeout(() => {
@@ -113,6 +125,8 @@ export function HeroMedia({ photo }: { photo: Photo }) {
 
     return () => {
       window.clearTimeout(watchdog);
+      window.clearTimeout(stall);
+      v.removeEventListener("waiting", onWaiting);
       v.removeEventListener("loadedmetadata", seek);
       v.removeEventListener("playing", onPlaying);
       v.removeEventListener("timeupdate", onTime);
