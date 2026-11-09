@@ -36,7 +36,7 @@ export function AuthAside() {
   const v = VARIANTS.find((x) => x.match(pathname))!;
   return (
     <aside className="relative hidden p-4 lg:block">
-      <div className="relative isolate flex h-full min-h-[640px] flex-col justify-between overflow-hidden rounded-[2rem] p-10 text-white shadow-[var(--shadow-lift)]">
+      <div className="sticky top-4 isolate flex h-[calc(100dvh-2rem)] min-h-[560px] flex-col justify-between overflow-hidden rounded-[2rem] p-10 text-white shadow-[var(--shadow-lift)]">
         <Image src={v.photo.src} alt={v.photo.alt} fill priority sizes="50vw" className={`-z-10 object-cover ${v.position}`} />
         <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-[#0b2e1a] via-[#0b2e1a]/45 to-[#0b2e1a]/10" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-[#14532d]/15 mix-blend-multiply" />

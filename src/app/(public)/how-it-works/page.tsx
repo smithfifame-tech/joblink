@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PhotoBanner } from "@/components/home/photo-banner";
+import { PHOTOS } from "@/lib/media/photos";
 
 export const metadata: Metadata = { title: "Comment ça marche", description: "Publier une mission, candidater, réaliser, valider, payer : le fonctionnement de JOBLINK étape par étape.", alternates: { canonical: "/how-it-works" } };
 
@@ -22,8 +24,8 @@ const WORKER = [
 
 function Steps({ title, steps }: { title: string; steps: string[][] }) {
   return (
-    <section className="rounded-2xl border p-6 sm:p-8">
-      <h2 className="text-xl font-semibold">{title}</h2>
+    <section className="rounded-[1.75rem] border border-border/80 bg-white p-6 shadow-[var(--shadow-soft)] sm:p-8">
+      <h2 className="text-xl font-bold">{title}</h2>
       <ol className="mt-6 grid gap-5">
         {steps.map(([t, d], i) => (
           <li key={t} className="flex gap-4">
@@ -41,16 +43,21 @@ function Steps({ title, steps }: { title: string; steps: string[][] }) {
 
 export default function HowItWorksPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
-      <h1 className="text-3xl font-semibold sm:text-4xl">Comment ça marche</h1>
-      <p className="mt-3 max-w-2xl text-muted-foreground">Un parcours simple et encadré, de la publication au paiement.</p>
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <PhotoBanner
+        photo={PHOTOS.ladder}
+        position="object-[50%_30%]"
+        eyebrow="Guide"
+        title="Comment ça marche"
+        subtitle="Un parcours simple et encadré, de la publication au paiement."
+      />
+      <div className="mt-10 grid gap-6 lg:grid-cols-2">
         <Steps title="Vous cherchez un prestataire" steps={CLIENT} />
         <Steps title="Vous cherchez du travail" steps={WORKER} />
       </div>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <Button asChild size="lg"><Link href="/register?type=client">Publier une mission</Link></Button>
-        <Button asChild size="lg" variant="outline"><Link href="/register?type=worker">Devenir travailleur</Link></Button>
+        <Button asChild size="lg" className="rounded-full"><Link href="/register?type=client">Publier une mission</Link></Button>
+        <Button asChild size="lg" variant="outline" className="rounded-full"><Link href="/register?type=worker">Devenir travailleur</Link></Button>
       </div>
     </div>
   );

@@ -8,6 +8,13 @@ import { cn } from "@/lib/utils";
 
 const photo = PHOTOS.tailorPhone;
 
+const FADE_MASK: React.CSSProperties = {
+  maskImage: "linear-gradient(to right, transparent 0%, #000 38%), linear-gradient(to top, transparent 0%, #000 22%)",
+  WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 38%), linear-gradient(to top, transparent 0%, #000 22%)",
+  maskComposite: "intersect",
+  WebkitMaskComposite: "source-in",
+};
+
 function MissionCard({ className }: { className?: string }) {
   const example = computeBreakdown(15000);
   return (
@@ -73,13 +80,12 @@ function Credit({ className }: { className?: string }) {
 /** Grande photo d'arrière-plan du hero (desktop), fondue dans le blanc côté texte. */
 export function HeroBackdrop() {
   return (
-    <div className="absolute inset-y-0 right-0 -z-10 hidden w-[54%] lg:block">
-      <Image src={photo.src} alt={photo.alt} fill priority sizes="54vw" className="object-cover object-[35%_center]" />
-      {/* Fondu vers le texte + voile vert très léger */}
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-white via-white/25 to-transparent" />
-      <div aria-hidden className="absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-white to-transparent" />
-      <div aria-hidden className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white to-transparent" />
-      <div aria-hidden className="absolute inset-0 bg-[#14532d]/[0.08] mix-blend-multiply" />
+    <div className="absolute inset-y-0 right-0 -z-10 hidden w-[56%] lg:block">
+      {/* Photo fondue dans le fond (masque) : aucune arête visible côté texte ni en bas */}
+      <div className="absolute inset-0" style={FADE_MASK}>
+        <Image src={photo.src} alt={photo.alt} fill priority sizes="56vw" className="object-cover object-[35%_center]" />
+        <div aria-hidden className="absolute inset-0 bg-[#14532d]/[0.08] mix-blend-multiply" />
+      </div>
 
       <div aria-hidden className="absolute inset-0">
         <MissionCard className="absolute left-[10%] top-[16%] animate-float" />
