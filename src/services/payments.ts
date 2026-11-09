@@ -1,5 +1,5 @@
 import "server-only";
-import { getSupabaseAdminClient } from "@/lib/supabase/server";
+import { serverRpc } from "@/lib/supabase/server-rpc";
 import { getAdapter } from "@/lib/payments/registry";
 import { WebhookSignatureError } from "@/lib/payments/types";
 
@@ -10,7 +10,7 @@ export type WebhookResult = { status: number; body: Record<string, unknown> };
  *  1. vérification de la signature (dans l'adaptateur) — rejet 401 sinon ;
  *  2. enregistrement de l'événement (unique par fournisseur + id) → idempotence ;
  *  3. rapprochement avec le paiement par référence fournisseur ;
- *  4. confirmation atomique via la fonction SQL confirm_payment (service_role).
+ *  4. confirmation atomique via la fonction SQL confirm_payment (appel serveur srv_*).
  * Le montant n'est jamais lu depuis le webhook pour créditer : il provient du contrat en base.
  */
 export async function processPaymentWebhook(providerId: string, rawBody: string, headers: Headers): Promise<WebhookResult> {
@@ -29,19 +29,23 @@ export async function processPaymentWebhook(providerId: string, rawBody: string,
     return { status: 400, body: { error: "invalid_payload" } };
   }
 
-  const db = getSupabaseAdminClient();
-  const { data: inserted, error: insErr } = await db
-    .from("webhook_events")
-    .insert({ provider: adapter.id, event_id: outcome.eventId, event_type: outcome.kind, payload: JSON.parse(rawBody) })
-    .select("id")
-    .maybeSingle();
-  if (insErr) {
-    if (/duplicate|unique/i.test(insErr.message)) return { status: 200, body: { received: true, duplicate: true } };
-    return { status: 500, body: { error: "storage_failed" } };
+  let payload: unknown = {};
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return { status: 400, body: { error: "invalid_payload" } };
   }
-  const eventRowId = inserted?.id as string | undefined;
+  const begun = await serverRpc<{ duplicate: boolean; id: string | null }>("srv_webhook_begin", {
+    p_provider: adapter.id,
+    p_event_id: outcome.eventId,
+    p_event_type: outcome.kind,
+    p_payload: payload,
+  });
+  if (begun.error || !begun.data) return { status: 500, body: { error: "storage_failed" } };
+  if (begun.data.duplicate) return { status: 200, body: { received: true, duplicate: true } };
+  const eventRowId = begun.data.id;
   const finish = async (status: "processed" | "ignored" | "error", error?: string) => {
-    if (eventRowId) await db.from("webhook_events").update({ status, error: error ?? null, processed_at: new Date().toISOString() }).eq("id", eventRowId);
+    if (eventRowId) await serverRpc("srv_webhook_finish", { p_id: eventRowId, p_status: status, p_error: error ?? null });
   };
 
   if (outcome.kind === "ignored") {
@@ -50,29 +54,29 @@ export async function processPaymentWebhook(providerId: string, rawBody: string,
   }
 
   // Rapprochement : par référence fournisseur, sinon par référence marchand transmise à la création
-  let query = db.from("payments").select("id, provider_reference, status").eq("provider", adapter.id);
-  query = outcome.reference ? query.eq("provider_reference", outcome.reference) : query.eq("id", outcome.paymentId ?? "");
-  let { data: payment } = await query.maybeSingle();
-  if (!payment && outcome.paymentId && /^[0-9a-f-]{36}$/i.test(outcome.paymentId)) {
-    ({ data: payment } = await db.from("payments").select("id, provider_reference, status").eq("provider", adapter.id).eq("id", outcome.paymentId).maybeSingle());
-  }
+  const paymentId = outcome.paymentId && /^[0-9a-f-]{36}$/i.test(outcome.paymentId) ? outcome.paymentId : null;
+  const { data: payment } = await serverRpc<{ id: string; status: string; provider_reference: string | null }>("srv_find_payment", {
+    p_provider: adapter.id,
+    p_reference: outcome.reference ?? null,
+    p_payment_id: paymentId,
+  });
   if (!payment) {
     await finish("error", "payment_not_found");
     return { status: 200, body: { received: true, matched: false } };
   }
 
   if (outcome.kind === "succeeded") {
-    const { error } = await db.rpc("confirm_payment", {
+    const { error } = await serverRpc("srv_confirm_payment", {
       p_payment_id: payment.id,
-      p_provider_reference: outcome.reference,
-      p_provider_fee: outcome.providerFee,
+      p_reference: outcome.reference ?? null,
+      p_fee: outcome.providerFee ?? null,
     });
     if (error) {
       await finish("error", error.message);
       return { status: 500, body: { error: "confirm_failed" } };
     }
   } else {
-    await db.rpc("fail_payment", { p_payment_id: payment.id, p_reason: outcome.reason });
+    await serverRpc("srv_fail_payment", { p_payment_id: payment.id, p_reason: outcome.reason });
   }
   await finish("processed");
   return { status: 200, body: { received: true } };
@@ -82,14 +86,17 @@ export async function processPaymentWebhook(providerId: string, rawBody: string,
  * Rapprochement de secours au retour du client : interroge l'API du prestataire (authentifiée par clé secrète)
  * si le webhook n'est pas encore arrivé. Ne fait jamais confiance aux paramètres d'URL du navigateur.
  */
-export async function reconcilePayment(paymentId: string): Promise<void> {
-  const db = getSupabaseAdminClient();
-  const { data: p } = await db.from("payments").select("id, provider, provider_reference, status").eq("id", paymentId).maybeSingle();
+export async function reconcilePayment(paymentId: string, provider: string): Promise<void> {
+  const { data: p } = await serverRpc<{ id: string; status: string; provider: string; provider_reference: string | null }>("srv_find_payment", {
+    p_provider: provider,
+    p_reference: null,
+    p_payment_id: paymentId,
+  });
   if (!p || p.status !== "processing" || !p.provider_reference) return;
   try {
-    const status = await getAdapter(p.provider as string).fetchStatus(p.provider_reference as string);
-    if (status === "approved") await db.rpc("confirm_payment", { p_payment_id: p.id, p_provider_reference: p.provider_reference, p_provider_fee: null });
-    if (status === "declined") await db.rpc("fail_payment", { p_payment_id: p.id, p_reason: "Refusé par le prestataire" });
+    const status = await getAdapter(p.provider).fetchStatus(p.provider_reference);
+    if (status === "approved") await serverRpc("srv_confirm_payment", { p_payment_id: p.id, p_reference: p.provider_reference, p_fee: null });
+    if (status === "declined") await serverRpc("srv_fail_payment", { p_payment_id: p.id, p_reason: "Refusé par le prestataire" });
   } catch {
     // Le webhook signé reste la source de vérité ; on réessaiera plus tard.
   }

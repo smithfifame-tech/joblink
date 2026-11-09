@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getSupabaseAdminClient } from "@/lib/supabase/server";
+import { serverRpc } from "@/lib/supabase/server-rpc";
 import { getActiveAdapter, getAdapter, isPaymentConfigured } from "@/lib/payments/registry";
 import { signPayload } from "@/lib/payments/signature";
 import { serverEnv, isProduction } from "@/lib/env.server";
@@ -59,12 +59,12 @@ export async function startPaymentAction(contractId: string, idempotencyKey?: st
       },
       callbackUrl: `${publicEnv.siteUrl}/client/payments?payment=${payment.id}`,
     });
-    const { error: refErr } = await getSupabaseAdminClient().rpc("attach_payment_reference", {
+    const { error: refErr } = await serverRpc("srv_attach_payment_reference", {
       p_payment_id: payment.id,
       p_reference: session.reference,
       p_checkout_url: session.checkoutUrl,
     });
-    if (refErr) return fail(refErr);
+    if (refErr) return { ok: false, error: "Impossible de préparer le paiement. Réessayez dans un instant." };
     return { ok: true, data: { checkoutUrl: session.checkoutUrl } };
   } catch (e) {
     return fail(e);

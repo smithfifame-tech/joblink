@@ -1,7 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
-import { getSupabaseAdminClient } from "@/lib/supabase/server";
-import { serverEnv } from "@/lib/env.server";
+import { serverRpc, serverRpcConfigured } from "@/lib/supabase/server-rpc";
 
 const memory = new Map<string, { start: number; count: number }>();
 
@@ -23,15 +22,15 @@ export async function getClientIp(): Promise<string> {
 }
 
 /**
- * Limitation de débit partagée entre instances serverless (table rate_limits via service_role).
+ * Limitation de débit partagée entre instances serverless (table rate_limits via srv_check_rate_limit).
  * Retourne true si la requête est autorisée.
  */
 export async function rateLimit(scope: string, identifier: string, max: number, windowSeconds: number): Promise<boolean> {
   const key = `${scope}:${identifier}`.slice(0, 200);
-  if (!serverEnv.serviceRoleKey) return memoryRateLimit(key, max, windowSeconds);
+  if (!serverRpcConfigured()) return memoryRateLimit(key, max, windowSeconds);
   try {
-    const { data, error } = await getSupabaseAdminClient().rpc("check_rate_limit", {
-      p_key: key,
+    const { data, error } = await serverRpc<boolean>("srv_check_rate_limit", {
+      p_bucket: key,
       p_max: max,
       p_window_seconds: windowSeconds,
     });

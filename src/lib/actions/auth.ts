@@ -2,10 +2,10 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSupabaseAdminClient, getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { serverRpc } from "@/lib/supabase/server-rpc";
 import { SESSION_ONLY_COOKIE } from "@/lib/supabase/cookies";
 import { publicEnv } from "@/lib/env";
-import { serverEnv } from "@/lib/env.server";
 import { forgotPasswordSchema, loginSchema, onboardingSchema, registerSchema, resetPasswordSchema, safeNext } from "@/lib/validations/auth";
 import { normalizePhone } from "@/lib/validations/common";
 import { getClientIp, rateLimit } from "@/lib/security/rate-limit";
@@ -82,9 +82,9 @@ export async function loginAction(input: unknown): Promise<ActionResult<{ redire
   let email = identifier.includes("@") ? identifier.toLowerCase() : null;
   if (!email) {
     const phone = normalizePhone(identifier);
-    if (phone && serverEnv.serviceRoleKey) {
-      const { data } = await getSupabaseAdminClient().from("profiles").select("email").eq("phone", phone).limit(1).maybeSingle();
-      email = (data?.email as string | undefined) ?? null;
+    if (phone) {
+      const { data } = await serverRpc<string>("srv_email_for_phone", { p_phone: phone });
+      email = data ?? null;
     }
   }
   if (!email) return { ok: false, error: GENERIC_LOGIN_ERROR };

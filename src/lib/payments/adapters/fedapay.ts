@@ -73,23 +73,31 @@ export const fedapayAdapter: PaymentAdapter = {
     const event = JSON.parse(rawBody) as {
       id?: string | number;
       name: string;
-      entity?: { id: string | number; status?: string; fees?: number; merchant_reference?: string };
+      entity?: {
+        id: string | number;
+        status?: string;
+        fees?: number;
+        merchant_reference?: string;
+        custom_metadata?: { payment_id?: string } | null;
+      };
     };
     const entity = event.entity;
     const eventId = String(event.id ?? `${event.name}:${entity?.id ?? "unknown"}`);
     if (!entity) return { kind: "ignored", eventId, reason: "no_entity" };
     const reference = String(entity.id);
+    // Référence JOBLINK : merchant_reference, sinon métadonnées transmises à la création
+    const paymentId = entity.merchant_reference ?? entity.custom_metadata?.payment_id;
     if (event.name === "transaction.approved" || event.name === "transaction.transferred") {
       return {
         kind: "succeeded",
         eventId,
         reference,
         providerFee: typeof entity.fees === "number" ? Math.round(entity.fees) : null,
-        paymentId: entity.merchant_reference,
+        paymentId,
       };
     }
     if (event.name === "transaction.declined" || event.name === "transaction.canceled") {
-      return { kind: "failed", eventId, reference, reason: `FedaPay: ${event.name}`, paymentId: entity.merchant_reference };
+      return { kind: "failed", eventId, reference, reason: `FedaPay: ${event.name}`, paymentId };
     }
     return { kind: "ignored", eventId, reason: event.name };
   },

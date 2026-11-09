@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Chaîne complète webhook → vérification de signature → idempotence → rapprochement → confirm_payment.
- * Le client Supabase service_role est remplacé par un double en mémoire.
+ * Chaîne complète webhook → vérification de signature → idempotence → rapprochement → confirmation.
+ * Les appels serveur srv_* (clé interne) sont remplacés par un double en mémoire.
  */
 const state = {
   events: new Set<string>(),
@@ -10,45 +10,25 @@ const state = {
   rpc: [] as { fn: string; args: Record<string, unknown> }[],
 };
 
-function fakeDb() {
-  return {
-    from(table: string) {
-      const filters: Record<string, unknown> = {};
-      const api = {
-        insert(row: { provider: string; event_id: string }) {
-          return {
-            select: () => ({
-              maybeSingle: async () => {
-                const k = `${row.provider}:${row.event_id}`;
-                if (state.events.has(k)) return { data: null, error: { message: "duplicate key value violates unique constraint" } };
-                state.events.add(k);
-                return { data: { id: `evt-${state.events.size}` }, error: null };
-              },
-            }),
-          };
-        },
-        update: () => ({ eq: async () => ({ error: null }) }),
-        select: () => api,
-        eq(col: string, val: unknown) {
-          filters[col] = val;
-          return api;
-        },
-        async maybeSingle() {
-          if (table !== "payments") return { data: null };
-          const p = state.payments.find((x) => Object.entries(filters).every(([k, v]) => (x as Record<string, unknown>)[k] === v));
-          return { data: p ?? null };
-        },
-      };
-      return api;
-    },
-    async rpc(fn: string, args: Record<string, unknown>) {
-      state.rpc.push({ fn, args });
-      return { data: null, error: null };
-    },
-  };
+async function fakeServerRpc(fn: string, args: Record<string, unknown> = {}) {
+  if (fn === "srv_webhook_begin") {
+    const k = `${args.p_provider}:${args.p_event_id}`;
+    if (state.events.has(k)) return { data: { duplicate: true, id: null }, error: null };
+    state.events.add(k);
+    return { data: { duplicate: false, id: `evt-${state.events.size}` }, error: null };
+  }
+  if (fn === "srv_webhook_finish") return { data: null, error: null };
+  if (fn === "srv_find_payment") {
+    const p = state.payments.find(
+      (x) => x.provider === args.p_provider && ((args.p_reference && x.provider_reference === args.p_reference) || (args.p_payment_id && x.id === args.p_payment_id)),
+    );
+    return { data: p ?? null, error: null };
+  }
+  state.rpc.push({ fn, args });
+  return { data: null, error: null };
 }
 
-vi.mock("@/lib/supabase/server", () => ({ getSupabaseAdminClient: () => fakeDb(), getSupabaseServerClient: async () => fakeDb() }));
+vi.mock("@/lib/supabase/server-rpc", () => ({ serverRpc: fakeServerRpc, serverRpcConfigured: () => true }));
 
 async function load(env: Record<string, string>) {
   vi.resetModules();
@@ -74,7 +54,7 @@ describe("webhook de paiement", () => {
 
     const first = await processPaymentWebhook("sandbox", body, headers);
     expect(first.status).toBe(200);
-    expect(state.rpc).toEqual([{ fn: "confirm_payment", args: { p_payment_id: state.payments[0]!.id, p_provider_reference: "SBX-REF-1", p_provider_fee: 0 } }]);
+    expect(state.rpc).toEqual([{ fn: "srv_confirm_payment", args: { p_payment_id: state.payments[0]!.id, p_reference: "SBX-REF-1", p_fee: 0 } }]);
 
     const replay = await processPaymentWebhook("sandbox", body, headers);
     expect(replay).toEqual({ status: 200, body: { received: true, duplicate: true } });
@@ -95,7 +75,7 @@ describe("webhook de paiement", () => {
     const body = JSON.stringify({ id: "evt_3", name: "transaction.declined", entity: { reference: "SBX-REF-1", payment_id: state.payments[0]!.id } });
     const res = await processPaymentWebhook("sandbox", body, new Headers({ "x-sandbox-signature": signPayload(body, SECRET) }));
     expect(res.status).toBe(200);
-    expect(state.rpc[0]?.fn).toBe("fail_payment");
+    expect(state.rpc[0]?.fn).toBe("srv_fail_payment");
   });
 
   it("n'associe jamais un webhook à un paiement inconnu", async () => {
@@ -120,7 +100,7 @@ describe("webhook de paiement", () => {
     const body = JSON.stringify({ id: 77, name: "transaction.approved", entity: { id: 1234, fees: 150, merchant_reference: "99999999-2222-4333-8444-555555555555" } });
     const ok = await processPaymentWebhook("fedapay", body, new Headers({ "x-fedapay-signature": signPayload(body, "wh_live_x") }));
     expect(ok.status).toBe(200);
-    expect(state.rpc.at(-1)).toEqual({ fn: "confirm_payment", args: { p_payment_id: "99999999-2222-4333-8444-555555555555", p_provider_reference: "1234", p_provider_fee: 150 } });
+    expect(state.rpc.at(-1)).toEqual({ fn: "srv_confirm_payment", args: { p_payment_id: "99999999-2222-4333-8444-555555555555", p_reference: "1234", p_fee: 150 } });
     const bad = await processPaymentWebhook("fedapay", body, new Headers({ "x-fedapay-signature": "t=1,s=00" }));
     expect(bad.status).toBe(401);
   });

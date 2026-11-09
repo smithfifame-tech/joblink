@@ -25,6 +25,8 @@ export function getActiveAdapter(): PaymentAdapter {
 }
 
 export function isPaymentConfigured(): boolean {
+  // Les webhooks passent par l'API serveur interne : sans elle, aucun paiement ne pourrait être confirmé.
+  if (!serverEnv.internalRpcKey) return false;
   const p = serverEnv.paymentProvider;
   if (p === "sandbox") return !isProduction() && Boolean(serverEnv.sandboxWebhookSecret);
   if (p === "fedapay") return Boolean(serverEnv.fedapaySecretKey && serverEnv.fedapayWebhookSecret);

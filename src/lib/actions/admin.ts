@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getSupabaseAdminClient } from "@/lib/supabase/server";
+import { serverRpc } from "@/lib/supabase/server-rpc";
 import { getAdapter } from "@/lib/payments/registry";
 import { fail, type ActionResult } from "@/lib/errors";
 import { authed, callRpc, invalid } from "./_helpers";
@@ -112,7 +112,7 @@ export async function adminPayoutAction(paymentId: string): Promise<ActionResult
     const { data: p, error } = await supabase.from("payments").select("*").eq("id", paymentId).single();
     if (error || !p) return { ok: false, error: "Paiement introuvable." };
     if (p.status !== "succeeded" || p.payout_status === "completed") return { ok: false, error: "Ce paiement n'est pas éligible au versement." };
-    const { data: payee } = await getSupabaseAdminClient().from("profiles").select("first_name, last_name, email, phone").eq("id", p.payee_id).single();
+    const { data: payee } = await serverRpc<{ first_name: string; last_name: string; email: string; phone: string | null }>("srv_payee_contact", { p_payment_id: paymentId });
     if (!payee?.phone) return { ok: false, error: "Le travailleur n'a pas de numéro Mobile Money renseigné." };
     const adapter = getAdapter(p.provider as string);
     if (!adapter.createPayout) return { ok: false, error: "Ce prestataire ne gère pas les versements automatiques : versez manuellement puis enregistrez." };

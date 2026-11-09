@@ -19,7 +19,7 @@ export default async function AdminSettingsPage() {
     supabase.from("webhook_events").select("id, provider, event_type, status, error, received_at").order("received_at", { ascending: false }).limit(15),
   ]);
   const checks: [string, boolean, string][] = [
-    ["Clé service_role (serveur)", Boolean(serverEnv.serviceRoleKey), "Requise pour webhooks, rate limiting, connexion par téléphone"],
+    ["Clé serveur interne (INTERNAL_RPC_KEY)", Boolean(serverEnv.internalRpcKey), "Webhooks de paiement, limitation de débit, contact, connexion par téléphone"],
     [`Paiements (${serverEnv.paymentProvider})`, isPaymentConfigured(), "Clés API + secret de webhook"],
     ["E-mails Resend", Boolean(serverEnv.resendApiKey), "Facultatif (formulaire de contact)"],
     ["Secret des tâches planifiées", Boolean(serverEnv.cronSecret), "Purge de conservation des données"],

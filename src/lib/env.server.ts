@@ -13,6 +13,7 @@ export const serverEnv = {
   contactInbox: process.env.CONTACT_INBOX ?? "",
   cronSecret: process.env.CRON_SECRET ?? "",
   ownerPanelServerKey: process.env.OWNER_PANEL_SERVER_KEY ?? "",
+  internalRpcKey: process.env.INTERNAL_RPC_KEY ?? "",
 };
 
 export const isProduction = () => serverEnv.appEnv === "production";

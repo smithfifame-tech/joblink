@@ -20,9 +20,13 @@ export const metadata = { title: "Paiements" };
 export default async function ClientPaymentsPage({ searchParams }: { searchParams: Promise<{ payment?: string }> }) {
   const user = await requireRole("client");
   const { payment: returned } = await searchParams;
-  if (returned && /^[0-9a-f-]{36}$/i.test(returned)) await reconcilePayment(returned);
-
   const supabase = await getSupabaseServerClient();
+  if (returned && /^[0-9a-f-]{36}$/i.test(returned)) {
+    // Rapprochement uniquement pour un paiement de cet utilisateur (lecture soumise à RLS)
+    const { data: mine } = await supabase.from("payments").select("id, provider").eq("id", returned).eq("payer_id", user.id).maybeSingle();
+    if (mine) await reconcilePayment(mine.id as string, mine.provider as string);
+  }
+
   const [{ data: payments }, { data: contracts }, rates] = await Promise.all([
     supabase.from("payments").select("*").eq("payer_id", user.id).order("created_at", { ascending: false }).limit(100),
     supabase.from("contracts").select("*").eq("client_id", user.id).eq("status", "completed"),

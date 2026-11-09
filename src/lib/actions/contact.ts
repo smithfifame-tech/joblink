@@ -1,7 +1,7 @@
 "use server";
 
 import { contactSchema } from "@/lib/validations/profile";
-import { getSupabaseAdminClient } from "@/lib/supabase/server";
+import { serverRpc } from "@/lib/supabase/server-rpc";
 import { getClientIp, rateLimit } from "@/lib/security/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { serverEnv } from "@/lib/env.server";
@@ -16,8 +16,8 @@ export async function contactAction(input: unknown): Promise<ActionResult> {
   if (!(await rateLimit("contact", ip, 5, 3600))) return { ok: false, error: "Trop de messages envoyés. Réessayez plus tard." };
   try {
     const { name, email, subject, message } = parsed.data;
-    const { error } = await getSupabaseAdminClient().from("contact_messages").insert({ name, email, subject, message });
-    if (error) return fail(error);
+    const { error } = await serverRpc("srv_insert_contact", { p_name: name, p_email: email, p_subject: subject, p_message: message });
+    if (error) return { ok: false, error: "Envoi impossible pour le moment. Réessayez plus tard." };
     if (serverEnv.contactInbox) {
       await sendEmail({
         to: serverEnv.contactInbox,
