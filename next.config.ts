@@ -10,12 +10,13 @@ const supabaseHost = (() => {
 
 const isDev = process.env.NODE_ENV !== "production";
 
-/** Content Security Policy : sources limitées à Supabase, OpenStreetMap et au prestataire de paiement. */
+/** Content Security Policy : sources limitées à Supabase, OpenStreetMap, aux vidéos Pexels du hero et au prestataire de paiement. */
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://*.tile.openstreetmap.org ${supabaseHost ? `https://${supabaseHost}` : ""}`,
+  "media-src 'self' https://videos.pexels.com",
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseHost ? `https://${supabaseHost} wss://${supabaseHost}` : ""} https://nominatim.openstreetmap.org${isDev ? " ws: http://127.0.0.1:54321" : ""}`,
   "frame-ancestors 'none'",
