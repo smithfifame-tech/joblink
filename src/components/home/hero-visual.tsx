@@ -84,7 +84,6 @@ export function HeroBackdrop() {
       {/* Photo fondue dans le fond (masque) : aucune arête visible côté texte ni en bas */}
       <div className="absolute inset-0" style={FADE_MASK}>
         <Image src={photo.src} alt={photo.alt} fill priority sizes="56vw" className="object-cover object-[35%_center]" />
-        <div aria-hidden className="absolute inset-0 bg-[#14532d]/[0.08] mix-blend-multiply" />
       </div>
 
       <div aria-hidden className="absolute inset-0">
