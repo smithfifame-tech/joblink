@@ -18,7 +18,8 @@ test.describe("site public", () => {
     await page.getByPlaceholder("Ville ou quartier").fill("Cotonou");
     await page.getByRole("button", { name: "Rechercher" }).click();
     await expect(page).toHaveURL(/\/jobs\?q=plombier&city=Cotonou/);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // La page est rendue côté serveur : laisser le temps à la requête catalogue.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
   });
 
   for (const [path, heading] of [

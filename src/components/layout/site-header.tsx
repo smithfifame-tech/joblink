@@ -22,20 +22,20 @@ export function SiteHeader() {
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70">
       <a href="#contenu" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-foreground focus:px-3 focus:py-2 focus:text-background">
         Aller au contenu
       </a>
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+      <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <Logo />
-        <nav aria-label="Navigation principale" className="hidden items-center gap-1 lg:flex">
+        <nav aria-label="Navigation principale" className="hidden items-center gap-0.5 rounded-full border border-border/80 bg-muted/60 p-1 lg:flex">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
-                isActive(item.href) && "font-medium text-foreground",
+                "rounded-full px-4 py-1.5 text-sm font-medium text-muted-foreground transition-all hover:text-foreground",
+                isActive(item.href) && "bg-background text-primary-strong shadow-[0_1px_3px_rgb(17_24_39/0.1)]",
               )}
             >
               {item.label}
@@ -44,22 +44,22 @@ export function SiteHeader() {
         </nav>
         <div className="hidden items-center gap-2 lg:flex">
           {dashboardHref ? (
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="rounded-full">
               <Link href={dashboardHref}>
                 <LayoutDashboard /> Mon espace
               </Link>
             </Button>
           ) : (
             <>
-              <Button asChild variant="ghost">
+              <Button asChild variant="ghost" className="rounded-full">
                 <Link href="/login">Connexion</Link>
               </Button>
-              <Button asChild variant="outline">
+              <Button asChild variant="ghost" className="rounded-full text-primary-strong hover:bg-accent">
                 <Link href="/register?type=worker">Devenir travailleur</Link>
               </Button>
             </>
           )}
-          <Button asChild>
+          <Button asChild className="rounded-full px-5 shadow-[0_6px_16px_-4px_rgb(22_163_74/0.5)]">
             <Link href={dashboardHref ? "/client/jobs/new" : "/register?type=client"}>Publier une mission</Link>
           </Button>
         </div>

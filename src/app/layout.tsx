@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import "@fontsource-variable/plus-jakarta-sans";
+import "@fontsource/montserrat/latin-800.css";
+import "@fontsource/montserrat/latin-900.css";
 import { Toaster } from "sonner";
 import { publicEnv } from "@/lib/env";
 import "./globals.css";
@@ -24,7 +26,7 @@ export const metadata: Metadata = {
     
   },
   twitter: { card: "summary_large_image" },
-  icons: { icon: "/icon.svg" },
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
   formatDetection: { telephone: false },
 };
 
@@ -36,7 +38,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="fr" className={GeistMono.variable}>
       <body className="min-h-dvh">
         {children}
         <Toaster position="top-center" richColors closeButton toastOptions={{ duration: 4500 }} />

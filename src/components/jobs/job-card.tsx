@@ -35,7 +35,7 @@ export function JobCard({ job, href, active, compact }: { job: JobCardData; href
     <Link
       href={href ?? `/jobs/${job.id}`}
       className={cn(
-        "group flex h-full flex-col rounded-xl border bg-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:p-5",
+        "group flex h-full flex-col rounded-2xl border border-border/80 bg-card p-4 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-[var(--shadow-lift)] sm:p-5",
         active && "border-primary ring-2 ring-primary/15",
       )}
     >
@@ -43,7 +43,7 @@ export function JobCard({ job, href, active, compact }: { job: JobCardData; href
         {img ? (
           <Image src={img} alt="" width={48} height={48} className="size-12 shrink-0 rounded-lg object-cover" loading="lazy" />
         ) : (
-          <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-accent text-primary">
+          <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-accent to-green-100 text-primary ring-1 ring-primary/10">
             <CategoryIcon name={job.category_icon} className="size-5" />
           </span>
         )}
@@ -69,7 +69,7 @@ export function JobCard({ job, href, active, compact }: { job: JobCardData; href
         )}
       </div>
       <div className="mt-auto flex items-end justify-between gap-2 pt-4">
-        <p className="text-lg font-semibold text-primary-strong tabular-nums">
+        <p className="text-lg font-bold text-primary-strong tabular-nums">
           {formatXOF(job.budget_amount)}
           {job.pay_type !== "fixed" && <span className="text-xs font-normal text-muted-foreground"> {PAY_TYPE_LABEL[job.pay_type]}</span>}
         </p>
