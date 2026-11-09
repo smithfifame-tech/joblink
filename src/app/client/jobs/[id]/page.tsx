@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, ExternalLink, FileText, Pencil, Star, Users } from "lucide-react";
-import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ApplicationActions } from "@/components/jobs/application-actions";
 import { ContractClientActions } from "@/components/jobs/contract-client-actions";
@@ -21,26 +20,31 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getCommissionRates } from "@/services/catalog";
 import { computeBreakdown } from "@/lib/payments/commission";
 import { getActiveAdapter, isPaymentConfigured } from "@/lib/payments/registry";
-import { storagePublicUrl } from "@/lib/env";
+import { publicEnv, storagePublicUrl } from "@/lib/env";
+import { categoryPhoto } from "@/lib/media/category-photos";
+import { JobHero } from "@/components/jobs/job-hero";
+import { PublishedCelebration } from "@/components/jobs/published-celebration";
 import { formatDate, formatRelative, formatXOF } from "@/lib/utils/format";
 import type { Application, Contract, ContractEvent, Job, Payment, PublicProfile, Review } from "@/types/db";
 
 export const metadata = { title: "Gérer la mission" };
 
-export default async function ClientJobPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ locked?: string }> }) {
+export default async function ClientJobPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ locked?: string; published?: string }> }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const user = await requireRole("client");
   const supabase = await getSupabaseServerClient();
   const { data: job } = await supabase.from("jobs").select("*").eq("id", id).eq("client_id", user.id).maybeSingle<Job>();
   if (!job) notFound();
 
-  const [{ data: apps }, { data: contracts }, { data: events }, { data: payments }, { data: reviews }, rates] = await Promise.all([
+  const [{ data: apps }, { data: contracts }, { data: events }, { data: payments }, { data: reviews }, rates, { data: cat }, { data: firstImage }] = await Promise.all([
     supabase.from("applications").select("*").eq("job_id", id).order("created_at", { ascending: true }),
     supabase.from("contracts").select("*").eq("job_id", id).order("created_at"),
     supabase.from("contract_events").select("*").eq("job_id", id).order("created_at", { ascending: false }).limit(40),
     supabase.from("payments").select("*").eq("job_id", id),
     supabase.from("reviews").select("*").eq("job_id", id).eq("reviewer_id", user.id),
     getCommissionRates(),
+    supabase.from("categories").select("name, slug, icon").eq("id", job.category_id).maybeSingle<{ name: string; slug: string; icon: string }>(),
+    supabase.from("job_images").select("storage_path").eq("job_id", id).order("sort_order").limit(1).maybeSingle<{ storage_path: string }>(),
   ]);
   const applications = (apps ?? []) as Application[];
   const contractList = (contracts ?? []) as Contract[];
@@ -66,19 +70,41 @@ export default async function ClientJobPage({ params, searchParams }: { params: 
 
   return (
     <>
-      <PageHeader
+      {sp.published === "1" && job.status !== "draft" && (
+        <PublishedCelebration jobId={job.id} title={job.title} url={`${publicEnv.siteUrl}/jobs/${job.id}`} />
+      )}
+      <JobHero
+        className="mb-4"
+        priority
+        cover={(() => {
+          const own = firstImage ? storagePublicUrl("job-images", firstImage.storage_path) : null;
+          if (own) return { src: own, illustration: false };
+          const p = categoryPhoto(cat?.slug, cat?.icon);
+          return { src: p.src, illustration: true, alt: p.alt, credit: { author: p.author, url: p.authorUrl } };
+        })()}
+        categoryName={cat?.name}
+        categoryIcon={cat?.icon}
         title={job.title}
-        description={`${job.city}, ${job.neighborhood} · ${formatXOF(job.budget_amount)} · avant le ${formatDate(job.deadline)}`}
-        actions={
-          <>
+        place={job.work_mode === "remote" ? "À distance" : `${job.neighborhood}, ${job.city}`}
+        remote={job.work_mode === "remote"}
+        startDate={job.start_date}
+        deadline={job.deadline}
+        workersNeeded={job.workers_needed}
+        createdAt={job.published_at ?? job.created_at}
+        aside={<JobStatusBadge status={job.status} />}
+      />
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Budget <strong className="text-foreground tabular-nums">{formatXOF(job.budget_amount)}</strong> · {applications.length} candidature{applications.length > 1 ? "s" : ""}
+        </p>
+        <div className="flex flex-wrap gap-2">
             <JobStatusBadge status={job.status} />
             {job.status === "draft" && <DraftActions jobId={job.id} />}
             {editable && <Button asChild variant="outline"><Link href={`/client/jobs/${job.id}/edit`}><Pencil /> Modifier</Link></Button>}
             {job.status !== "draft" && <Button asChild variant="ghost"><Link href={`/jobs/${job.id}`}><ExternalLink /> Annonce</Link></Button>}
             {["draft", "published", "reviewing", "assigned"].includes(job.status) && <CancelJobButton jobId={job.id} />}
-          </>
-        }
-      />
+          </div>
+      </div>
       {sp.locked && <Alert variant="info" className="mb-4">Cette mission est attribuée : elle ne peut plus être modifiée.</Alert>}
       {job.is_hidden && <Alert variant="error" className="mb-4" title="Mission masquée par la modération">{job.moderation_note}</Alert>}
 

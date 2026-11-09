@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, CalendarDays, Clock, MapPin, Star, Users, Wifi } from "lucide-react";
+import { BadgeCheck, CalendarDays, Clock, Inbox, Share2, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,12 @@ import { ApplyForm } from "@/components/jobs/apply-form";
 import { ReportButton } from "@/components/jobs/report-button";
 import { FavoriteButton } from "@/components/jobs/favorite-button";
 import { ApplicationStatusBadge, JobStatusBadge, PAY_TYPE_LABEL } from "@/components/jobs/status-badge";
-import { CategoryIcon } from "@/components/layout/category-icon";
 import { AreaMap } from "@/components/maps/area-map";
-import { getPublicJob } from "@/services/catalog";
+import { JobHero } from "@/components/jobs/job-hero";
+import { JobCard } from "@/components/jobs/job-card";
+import { ShareButtons } from "@/components/jobs/share-buttons";
+import { getPublicJob, searchJobs } from "@/services/catalog";
+import { categoryPhoto } from "@/lib/media/category-photos";
 import { requireUser } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { publicEnv, storagePublicUrl } from "@/lib/env";
@@ -55,8 +58,18 @@ export default async function JobDetailPage({ params }: { params: Params }) {
       ? supabase.from("favorites").select("target_id").eq("user_id", user.id).eq("target_type", "job").eq("target_id", job.id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+  const similar = await searchJobs({ category: job.category_slug, sort: "recent" }, 4)
+    .then((r) => r.rows.filter((j) => j.id !== job.id).slice(0, 3))
+    .catch(() => []);
   const application = myApp.data as Application | null;
   const isOwner = user?.id === job.client_id;
+  const firstImage = (images ?? [])[0] as { storage_path: string } | undefined;
+  const ownCover = firstImage ? storagePublicUrl("job-images", firstImage.storage_path) : null;
+  const illus = categoryPhoto(job.category_slug, job.category_icon);
+  const cover = ownCover
+    ? { src: ownCover, illustration: false, alt: "Photo de la mission" }
+    : { src: illus.src, illustration: true, alt: illus.alt, credit: { author: illus.author, url: illus.authorUrl } };
+  const shareUrl = `${publicEnv.siteUrl}/jobs/${job.id}`;
   const isOpen = (job.status === "published" || job.status === "reviewing") && job.deadline >= new Date().toISOString().slice(0, 10);
 
   const jsonLd = {
@@ -83,26 +96,36 @@ export default async function JobDetailPage({ params }: { params: Params }) {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <article className="grid content-start gap-6">
-          <header>
+          <JobHero
+            priority
+            cover={cover}
+            categoryName={job.category_name}
+            categoryIcon={job.category_icon}
+            title={job.title}
+            place={job.work_mode === "remote" ? "À distance" : `${job.neighborhood}, ${job.city}`}
+            remote={job.work_mode === "remote"}
+            startDate={job.start_date}
+            deadline={job.deadline}
+            workersNeeded={job.workers_needed}
+            createdAt={job.published_at ?? job.created_at}
+            aside={<JobStatusBadge status={job.status} />}
+          >
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary"><CategoryIcon name={job.category_icon} /> {job.category_name}</Badge>
-              <JobStatusBadge status={job.status} />
-              {job.work_mode === "remote" && <Badge variant="info"><Wifi /> À distance</Badge>}
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white/70"><Share2 className="size-3.5" /> Partager</span>
+              <ShareButtons url={shareUrl} title={job.title} variant="dark" />
             </div>
-            <h1 className="mt-3 text-2xl font-semibold sm:text-3xl">{job.title}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Publiée {formatRelative(job.published_at ?? job.created_at)} · {job.applications_count} candidature{job.applications_count > 1 ? "s" : ""}</p>
-          </header>
+          </JobHero>
 
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { icon: MapPin, label: "Lieu", value: job.work_mode === "remote" ? "À distance" : `${job.neighborhood}, ${job.city}` },
               { icon: CalendarDays, label: "Début souhaité", value: formatDate(job.start_date) },
               { icon: Clock, label: "Date limite", value: formatDate(job.deadline) },
-              { icon: Users, label: "Personnes", value: String(job.workers_needed) },
+              { icon: Inbox, label: "Candidatures", value: String(job.applications_count) },
+              { icon: Star, label: "Publiée", value: formatRelative(job.published_at ?? job.created_at) },
             ].map((d) => (
-              <div key={d.label} className="rounded-xl border p-3">
-                <dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><d.icon className="size-3.5" /> {d.label}</dt>
-                <dd className="mt-1 text-sm font-medium">{d.value}</dd>
+              <div key={d.label} className="rounded-2xl border bg-card p-3 shadow-[var(--shadow-soft)]">
+                <dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><d.icon className="size-3.5 text-primary" /> {d.label}</dt>
+                <dd className="mt-1 text-sm font-semibold">{d.value}</dd>
               </div>
             ))}
           </dl>
@@ -208,6 +231,18 @@ export default async function JobDetailPage({ params }: { params: Params }) {
           </p>
         </aside>
       </div>
+
+      {similar.length > 0 && (
+        <section className="mt-14" aria-labelledby="similar-title">
+          <div className="mb-5 flex items-end justify-between gap-3">
+            <h2 id="similar-title" className="text-xl font-bold tracking-tight">Missions similaires</h2>
+            <Link href={`/jobs?category=${job.category_slug}`} className="text-sm font-semibold text-primary-strong hover:underline">Tout voir en {job.category_name}</Link>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {similar.map((j) => <JobCard key={j.id} job={j} />)}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

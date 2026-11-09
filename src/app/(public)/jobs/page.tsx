@@ -81,7 +81,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SP }) {
               }
             />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {result.rows.map((job) => (
                 <JobCard key={job.id} job={job} />
               ))}

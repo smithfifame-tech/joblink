@@ -31,7 +31,7 @@ export default async function WorkerJobsPage({ searchParams }: { searchParams: P
         <JobFilters categories={categories} params={params} action="/worker/jobs" />
         <div>
           {rows.length === 0 ? <EmptyState icon={SearchX} title="Aucune mission" description="Modifiez vos filtres ou élargissez le rayon." /> : (
-            <div className="grid gap-4 sm:grid-cols-2">{rows.map((j) => <JobCard key={j.id} job={j} />)}</div>
+            <div className="grid gap-5 sm:grid-cols-2">{rows.map((j) => <JobCard key={j.id} job={j} />)}</div>
           )}
           <Pagination page={params.page ?? 1} pageSize={PAGE_SIZE} total={total} basePath="/worker/jobs" params={params as Record<string, string | number | undefined>} />
         </div>

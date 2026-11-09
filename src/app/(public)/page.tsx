@@ -247,7 +247,7 @@ export default async function HomePage() {
               }
             />
             {jobs.length > 0 ? (
-              <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {jobs.map((job, i) => (
                   <div key={job.id} data-reveal="" style={{ "--reveal-delay": `${(i % 3) * 90}ms` } as React.CSSProperties}>
                     <JobCard job={job} />

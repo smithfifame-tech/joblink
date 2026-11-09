@@ -159,6 +159,8 @@
   [data-reveal] { opacity: 1 !important; transform: none !important; filter: none !important; }
   .jl-motion { display: none !important; }
 }
+@keyframes confetti { 0% { transform: translate3d(0,-12px,0) rotate(0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translate3d(var(--dx, 0px),170px,0) rotate(560deg); opacity: 0; } }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes kenburns { from { transform: scale(1.12); } to { transform: scale(1); } }
 
 /* Tableau de bord propriétaire */

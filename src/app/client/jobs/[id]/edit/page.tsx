@@ -24,7 +24,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
   const point = parsePoint(job.location);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-6xl">
       <PageHeader title="Modifier la mission" description="Les modifications importantes sont historisées." />
       <JobForm
         categories={categories}
