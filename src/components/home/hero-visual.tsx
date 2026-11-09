@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 const photo = PHOTOS.tailorPhone;
 
 const FADE_MASK: React.CSSProperties = {
-  maskImage: "linear-gradient(to right, transparent 0%, #000 38%), linear-gradient(to top, transparent 0%, #000 22%)",
-  WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 38%), linear-gradient(to top, transparent 0%, #000 22%)",
+  maskImage: "linear-gradient(to right, transparent 42%, #000 64%), linear-gradient(to top, transparent 0%, #000 22%)",
+  WebkitMaskImage: "linear-gradient(to right, transparent 42%, #000 64%), linear-gradient(to top, transparent 0%, #000 22%)",
   maskComposite: "intersect",
   WebkitMaskComposite: "source-in",
 };
@@ -80,12 +80,15 @@ function Credit({ className }: { className?: string }) {
 /** Grande photo d'arrière-plan du hero (desktop), fondue dans le blanc côté texte. */
 export function HeroBackdrop() {
   return (
-    <div className="absolute inset-y-0 right-0 -z-10 hidden w-[56%] lg:block">
-      {/* Photo fondue dans le fond (masque) : aucune arête visible côté texte ni en bas */}
-      <div className="absolute inset-0" style={FADE_MASK}>
-        <Image src={photo.src} alt={photo.alt} fill priority sizes="56vw" className="object-cover object-[35%_center]" />
+    <>
+      {/* Calque photo pleine largeur, masqué : la photo n'occupe que la droite et se fond sans arête dans le fond. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 hidden lg:block" style={FADE_MASK}>
+        <div className="absolute inset-y-0 right-0 w-[60%]">
+          <Image src={photo.src} alt="" fill priority sizes="60vw" className="object-cover object-[35%_center]" />
+        </div>
       </div>
 
+    <div className="absolute inset-y-0 right-0 -z-10 hidden w-[56%] lg:block">
       <div aria-hidden className="absolute inset-0">
         <MissionCard className="absolute left-[10%] top-[16%] animate-float" />
         <PaymentCard className="absolute bottom-[18%] right-[8%] animate-float [animation-delay:1.5s]" />
@@ -99,6 +102,7 @@ export function HeroBackdrop() {
       </div>
       <Credit className="absolute bottom-3 right-3" />
     </div>
+    </>
   );
 }
 
