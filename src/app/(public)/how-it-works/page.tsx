@@ -46,7 +46,7 @@ export default function HowItWorksPage() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
       <PhotoBanner
         photo={PHOTOS.ladder}
-        position="object-[50%_30%]"
+        position="object-[50%_8%]"
         eyebrow="Guide"
         title="Comment ça marche"
         subtitle="Un parcours simple et encadré, de la publication au paiement."
