@@ -18,7 +18,7 @@ export default function ForgotPasswordPage() {
   const { register, handleSubmit, formState } = useForm<z.input<typeof forgotPasswordSchema>>({ resolver: zodResolver(forgotPasswordSchema) });
   return (
     <>
-      <h1 className="text-2xl font-semibold">Mot de passe oublié</h1>
+      <h1 className="text-3xl font-extrabold tracking-[-0.02em]">Mot de passe oublié</h1>
       <p className="mt-1 text-sm text-muted-foreground">Recevez un lien de réinitialisation par e-mail.</p>
       <form
         className="mt-8 grid gap-4"

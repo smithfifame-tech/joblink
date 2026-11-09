@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "./logo";
+import { PHOTO_CREDITS } from "@/lib/media/photos";
 
 const COLUMNS = [
   {
@@ -68,7 +69,16 @@ export function SiteFooter() {
       <div className="relative border-t border-border/70 bg-white/60">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>© {new Date().getFullYear()} JOBLINK. Tous droits réservés.</p>
-          <p>Commission de 5 % sur les missions payées · Aucun frais caché</p>
+          <p>
+            Photos d&apos;illustration :{" "}
+            {PHOTO_CREDITS.map(([name, url], i) => (
+              <span key={name}>
+                {i > 0 && ", "}
+                <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">{name}</a>
+              </span>
+            ))}{" "}
+            / <a href="https://unsplash.com/?utm_source=joblink&utm_medium=referral" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Unsplash</a>
+          </p>
         </div>
       </div>
     </footer>

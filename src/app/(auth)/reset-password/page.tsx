@@ -18,7 +18,7 @@ export default function ResetPasswordPage() {
   const { register, handleSubmit, watch, formState } = useForm<z.input<typeof resetPasswordSchema>>({ resolver: zodResolver(resetPasswordSchema) });
   return (
     <>
-      <h1 className="text-2xl font-semibold">Nouveau mot de passe</h1>
+      <h1 className="text-3xl font-extrabold tracking-[-0.02em]">Nouveau mot de passe</h1>
       <p className="mt-1 text-sm text-muted-foreground">Choisissez un mot de passe robuste que vous n&apos;utilisez nulle part ailleurs.</p>
       <form
         className="mt-8 grid gap-4"

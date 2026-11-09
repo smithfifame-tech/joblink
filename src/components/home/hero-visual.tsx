@@ -1,92 +1,116 @@
-import { BadgeCheck, MapPin, Navigation, Smartphone, Wrench, Zap } from "lucide-react";
+import Image from "next/image";
+import { BadgeCheck, MapPin, Smartphone, Star } from "lucide-react";
 import { LogoMark } from "@/components/layout/logo";
 import { computeBreakdown } from "@/lib/payments/commission";
 import { formatXOF } from "@/lib/utils/format";
+import { PHOTOS } from "@/lib/media/photos";
+import { cn } from "@/lib/utils";
 
-/**
- * Illustration du hero : une carte stylisée de quartier, l'épingle JOBLINK au centre,
- * et deux cartes d'exemple (mission et calcul de paiement). Purement décoratif :
- * aucune donnée n'est présentée comme réelle (les cartes sont étiquetées « Exemple »).
- */
-export function HeroVisual() {
+const photo = PHOTOS.tailorPhone;
+
+function MissionCard({ className }: { className?: string }) {
   const example = computeBreakdown(15000);
   return (
-    <div aria-hidden className="relative mx-auto aspect-[1/1] w-full max-w-[540px] select-none">
-      {/* Plateau de carte */}
-      <div className="absolute inset-[6%] overflow-hidden rounded-[2rem] border border-primary/15 bg-gradient-to-br from-[#f0fdf4] via-white to-[#ecfdf3] shadow-[var(--shadow-lift)]">
-        <div className="jl-grid absolute inset-0" />
-        <svg viewBox="0 0 400 400" className="absolute inset-0 size-full" preserveAspectRatio="none">
-          {/* Routes */}
-          <g fill="none" strokeLinecap="round">
-            <path d="M-20 300 C 80 260, 140 280, 210 220 S 330 120, 420 140" stroke="#FFFFFF" strokeWidth="22" />
-            <path d="M-20 300 C 80 260, 140 280, 210 220 S 330 120, 420 140" stroke="#DCFCE7" strokeWidth="2" strokeDasharray="8 10" />
-            <path d="M120 -20 C 140 90, 90 170, 150 260 S 170 380, 140 420" stroke="#FFFFFF" strokeWidth="16" />
-            <path d="M-20 90 C 90 110, 260 70, 420 60" stroke="#FFFFFF" strokeWidth="12" />
-            <path d="M300 -20 C 280 120, 330 260, 300 420" stroke="#FFFFFF" strokeWidth="12" />
-          </g>
-          {/* Îlots / parcelles */}
-          <g fill="#16A34A" opacity="0.07">
-            <rect x="30" y="130" width="70" height="50" rx="10" />
-            <rect x="200" y="290" width="80" height="60" rx="12" />
-            <rect x="320" y="200" width="60" height="70" rx="12" />
-            <rect x="180" y="100" width="70" height="40" rx="10" />
-          </g>
-          {/* Lagune stylisée */}
-          <path d="M0 360 C 60 340, 120 380, 190 370 S 300 340, 400 370 L 400 400 L 0 400 Z" fill="#BBF7D0" opacity="0.45" />
-        </svg>
-
-        {/* Rayon de recherche */}
-        <div className="absolute left-1/2 top-[52%] size-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/25 bg-primary/[0.06]" />
-        <div className="absolute left-1/2 top-[52%] size-[36%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-primary/30" />
-
-        {/* Épingle centrale */}
-        <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-[78%] animate-float">
-          <LogoMark className="size-24 drop-shadow-[0_12px_18px_rgb(20_83_45/0.35)] sm:size-28" />
-        </div>
-
-        {/* Prestataires (pastilles) */}
-        {[
-          { cls: "left-[20%] top-[28%]", icon: Wrench },
-          { cls: "right-[18%] top-[30%]", icon: Zap },
-          { cls: "left-[27%] bottom-[24%]", icon: Navigation },
-        ].map(({ cls, icon: Icon }, i) => (
-          <span key={i} className={`absolute ${cls} grid size-10 place-items-center rounded-full border-2 border-white bg-primary-strong text-white shadow-lg`}>
-            <Icon className="size-4" />
+    <div className={cn("w-64 rounded-2xl border border-white/60 bg-white/90 p-4 shadow-[var(--shadow-lift)] backdrop-blur-md", className)}>
+      <div className="flex items-center justify-between">
+        <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-strong">Exemple</span>
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+          <span className="relative flex size-1.5">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
+            <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
           </span>
-        ))}
+          Ouverte
+        </span>
       </div>
+      <p className="mt-2.5 text-sm font-semibold leading-snug text-foreground">Retouche de 3 tenues en pagne</p>
+      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+        <MapPin className="size-3" /> Couture · Cadjèhoun, Cotonou
+      </p>
+      <div className="mt-3 flex items-end justify-between">
+        <p className="text-base font-bold tabular-nums text-primary-strong">{formatXOF(example.amount)}</p>
+        <span className="text-[11px] text-muted-foreground">à 1,2 km</span>
+      </div>
+    </div>
+  );
+}
 
-      {/* Carte « mission » d'exemple */}
-      <div className="absolute left-0 top-0 hidden w-[54%] sm:block min-w-[210px] rounded-2xl border border-border/80 bg-white/95 p-4 shadow-[var(--shadow-lift)] backdrop-blur sm:-left-[4%]">
-        <div className="flex items-center justify-between">
-          <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-strong">Exemple</span>
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
-            <span className="size-1.5 rounded-full bg-primary" /> Ouverte
-          </span>
+function PaymentCard({ className }: { className?: string }) {
+  const example = computeBreakdown(15000);
+  return (
+    <div className={cn("w-60 rounded-2xl border border-white/60 bg-white/90 p-4 shadow-[var(--shadow-lift)] backdrop-blur-md", className)}>
+      <div className="flex items-center gap-2.5">
+        <span className="grid size-9 place-items-center rounded-xl bg-primary text-white shadow-[0_6px_14px_-4px_rgb(22_163_74/0.6)]">
+          <Smartphone className="size-4" />
+        </span>
+        <div>
+          <p className="text-xs font-semibold text-foreground">Paiement Mobile Money</p>
+          <p className="text-[11px] text-muted-foreground">Après validation du travail</p>
         </div>
-        <p className="mt-2.5 text-sm font-semibold leading-snug text-foreground">Réparer une fuite sous l&apos;évier</p>
-        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-          <MapPin className="size-3" /> Plomberie · Akpakpa, Cotonou
-        </p>
-        <p className="mt-3 text-base font-bold tabular-nums text-primary-strong">{formatXOF(example.amount)}</p>
       </div>
+      <div className="mt-3 flex items-center justify-between border-t border-dashed pt-3 text-xs">
+        <span className="flex items-center gap-1 font-semibold text-foreground">
+          <BadgeCheck className="size-3.5 text-primary" /> Net travailleur
+        </span>
+        <span className="font-bold tabular-nums text-primary-strong">{formatXOF(example.net)}</span>
+      </div>
+    </div>
+  );
+}
 
-      {/* Carte « paiement » d'exemple */}
-      <div className="absolute bottom-0 right-0 w-[54%] min-w-[220px] rounded-2xl border border-border/80 bg-white/95 p-4 shadow-[var(--shadow-lift)] backdrop-blur sm:-right-[3%]">
-        <div className="flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-lg bg-primary text-white">
-            <Smartphone className="size-4" />
-          </span>
-          <div>
-            <p className="text-xs font-semibold text-foreground">Paiement Mobile Money</p>
-            <p className="text-[11px] text-muted-foreground">Après validation du travail</p>
-          </div>
+function Credit({ className }: { className?: string }) {
+  return (
+    <a
+      href={photo.authorUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn("rounded-full bg-black/35 px-2.5 py-1 text-[10px] font-medium text-white/90 backdrop-blur hover:bg-black/50", className)}
+    >
+      Photo : {photo.author} / Unsplash
+    </a>
+  );
+}
+
+/** Grande photo d'arrière-plan du hero (desktop), fondue dans le blanc côté texte. */
+export function HeroBackdrop() {
+  return (
+    <div className="absolute inset-y-0 right-0 -z-10 hidden w-[54%] lg:block">
+      <Image src={photo.src} alt={photo.alt} fill priority sizes="54vw" className="object-cover object-[35%_center]" />
+      {/* Fondu vers le texte + voile vert très léger */}
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-white via-white/25 to-transparent" />
+      <div aria-hidden className="absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-white to-transparent" />
+      <div aria-hidden className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white to-transparent" />
+      <div aria-hidden className="absolute inset-0 bg-[#14532d]/[0.08] mix-blend-multiply" />
+
+      <div aria-hidden className="absolute inset-0">
+        <MissionCard className="absolute left-[10%] top-[16%] animate-float" />
+        <PaymentCard className="absolute bottom-[18%] right-[8%] animate-float [animation-delay:1.5s]" />
+        <div className="absolute right-[10%] top-[12%] flex items-center gap-2 rounded-full border border-white/60 bg-white/85 py-1.5 pl-1.5 pr-3 shadow-lg backdrop-blur-md">
+          <LogoMark className="size-7" />
+          <span className="text-xs font-semibold text-primary-strong">Près de chez vous</span>
         </div>
-        <dl className="mt-3 grid gap-1.5 text-xs">
-          <div className="flex justify-between text-muted-foreground"><dt>Commission (5 %)</dt><dd className="tabular-nums">− {formatXOF(example.commission)}</dd></div>
-          <div className="flex justify-between font-semibold text-foreground"><dt className="flex items-center gap-1"><BadgeCheck className="size-3.5 text-primary" /> Net travailleur</dt><dd className="tabular-nums text-primary-strong">{formatXOF(example.net)}</dd></div>
-        </dl>
+        <div className="absolute bottom-[8%] left-[18%] flex items-center gap-1.5 rounded-full border border-white/60 bg-white/85 px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur-md">
+          <Star className="size-3.5 fill-amber-400 text-amber-400" /> Avis liés aux missions réalisées
+        </div>
       </div>
+      <Credit className="absolute bottom-3 right-3" />
+    </div>
+  );
+}
+
+/** Version mobile / tablette : photo arrondie sous le texte. */
+export function HeroPhotoCard() {
+  return (
+    <div className="relative mt-10 lg:hidden">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-[1.75rem] shadow-[var(--shadow-lift)] ring-1 ring-black/5">
+        <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 90vw, 100vw" className="object-cover object-[30%_center]" />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#14532d]/45 via-transparent to-transparent" />
+        <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-white/90 py-1 pl-1 pr-3 shadow backdrop-blur">
+          <LogoMark className="size-6" />
+          <span className="text-xs font-semibold text-primary-strong">Près de chez vous</span>
+        </div>
+        <Credit className="absolute bottom-3 right-3" />
+      </div>
+      <PaymentCard className="relative -mt-12 ml-auto mr-3 sm:mr-6" />
     </div>
   );
 }

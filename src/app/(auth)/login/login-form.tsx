@@ -58,7 +58,7 @@ export function LoginForm() {
         />
         <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">Mot de passe oublié ?</Link>
       </div>
-      <Button type="submit" size="lg" loading={formState.isSubmitting}>Se connecter</Button>
+      <Button type="submit" size="lg" className="mt-1 shadow-[0_10px_24px_-8px_rgb(22_163_74/0.6)]" loading={formState.isSubmitting}>Se connecter</Button>
       <p className="text-center text-sm text-muted-foreground">
         Pas encore de compte ? <Link href="/register" className="font-medium text-primary hover:underline">Créer un compte</Link>
       </p>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight, ArrowUpRight, BadgeCheck, Banknote, Briefcase, CheckCircle2, ClipboardList, Handshake, Lock,
@@ -13,12 +14,14 @@ import { ConfigNotice } from "@/components/layout/config-notice";
 import { FaqList, FAQ_ITEMS } from "@/components/layout/faq-list";
 import { LogoMark } from "@/components/layout/logo";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { HeroVisual } from "@/components/home/hero-visual";
+import { HeroBackdrop, HeroPhotoCard } from "@/components/home/hero-visual";
 import { SectionHeading } from "@/components/home/section-heading";
+import { TalentMosaic } from "@/components/home/talent-mosaic";
 import { getCategories, getCategoryCounts, getPublicStats, getRecentJobs } from "@/services/catalog";
 import { getFeaturedReviews } from "@/services/reviews";
 import { computeBreakdown } from "@/lib/payments/commission";
 import { formatXOF } from "@/lib/utils/format";
+import { PHOTOS } from "@/lib/media/photos";
 
 export const revalidate = 60;
 
@@ -58,16 +61,17 @@ export default async function HomePage() {
       <ConfigNotice />
 
       {/* ───────────── HERO ───────────── */}
-      <section className="relative isolate overflow-hidden">
-        <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(70rem_36rem_at_85%_-10%,#dcfce7_0%,transparent_60%),radial-gradient(40rem_30rem_at_-10%_110%,#f0fdf4_0%,transparent_60%)]" />
-        <div aria-hidden className="jl-dots jl-fade-mask absolute inset-0 -z-10 opacity-60" />
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[1.05fr_1fr] lg:gap-8 lg:pb-24 lg:pt-20">
-          <div className="min-w-0 animate-fade-up">
+      <section className="relative isolate overflow-hidden bg-white">
+        <div aria-hidden className="absolute inset-0 -z-20 bg-[radial-gradient(50rem_30rem_at_0%_0%,#f0fdf4_0%,transparent_60%),radial-gradient(40rem_30rem_at_-10%_110%,#ecfdf3_0%,transparent_60%)]" />
+        <div aria-hidden className="jl-dots absolute inset-y-0 left-0 -z-20 w-1/2 opacity-50 [mask-image:radial-gradient(ellipse_at_top_left,#000_20%,transparent_70%)]" />
+        <HeroBackdrop />
+        <div className="mx-auto flex max-w-7xl items-center px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:min-h-[700px] lg:pb-24 lg:pt-16">
+          <div className="min-w-0 animate-fade-up lg:max-w-[47%]">
             <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 py-1 pl-1 pr-3 text-xs font-medium text-primary-strong shadow-sm backdrop-blur">
               <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-white">Bénin</span>
               Missions et services près de chez vous
             </p>
-            <h1 className="mt-6 text-balance text-[2.5rem] font-extrabold leading-[1.05] tracking-[-0.02em] [word-spacing:0.06em] sm:text-6xl lg:text-[3.75rem]">
+            <h1 className="mt-6 text-balance text-[2.5rem] font-extrabold leading-[1.05] tracking-[-0.02em] [word-spacing:0.06em] sm:text-6xl lg:text-[3.6rem]">
               Trouvez du travail. Trouvez les bonnes personnes.{" "}
               <span className="relative inline-block text-primary">
                 Près de chez vous.
@@ -109,10 +113,8 @@ export default async function HomePage() {
                 ))}
               </dl>
             )}
-          </div>
 
-          <div className="min-w-0 animate-fade-up [animation-delay:120ms]">
-            <HeroVisual />
+            <HeroPhotoCard />
           </div>
         </div>
       </section>
@@ -165,6 +167,20 @@ export default async function HomePage() {
             );
           })}
         </div>
+      </section>
+
+      {/* ───────────── SAVOIR-FAIRE (photos) ───────────── */}
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6" aria-labelledby="talent-title">
+        <SectionHeading
+          id="talent-title"
+          eyebrow="Savoir-faire"
+          title="Des mains expertes, à quelques rues de chez vous"
+          description="Artisans, techniciens, couturiers, bâtisseurs : JOBLINK donne de la visibilité aux talents de votre quartier."
+        />
+        <div className="mt-10">
+          <TalentMosaic />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">Photos d&apos;illustration.</p>
       </section>
 
       {/* ───────────── MISSIONS RÉCENTES ───────────── */}
@@ -386,12 +402,12 @@ export default async function HomePage() {
       {/* ───────────── CTA ───────────── */}
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
         <div className="relative isolate overflow-hidden rounded-[2rem] bg-primary-strong px-6 py-14 text-white sm:px-14 sm:py-16">
-          <div aria-hidden className="absolute -right-20 -top-24 -z-10 size-80 rounded-full bg-primary/50 blur-3xl" />
-          <div aria-hidden className="absolute -bottom-24 left-10 -z-10 size-72 rounded-full bg-green-400/20 blur-3xl" />
-          <svg aria-hidden viewBox="0 0 600 120" className="absolute -bottom-2 right-0 -z-10 w-[60%] text-green-300/15">
-            <path d="M0 110C180 40 420 10 600 30" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
-          </svg>
-          <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
+          <div aria-hidden className="absolute inset-y-0 right-0 -z-10 hidden w-[46%] lg:block">
+            <Image src={PHOTOS.ladder.src} alt="" fill sizes="40vw" className="object-cover object-[50%_30%] opacity-90" />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary-strong via-primary-strong/60 to-primary-strong/10" />
+          </div>
+          <div aria-hidden className="absolute -bottom-24 -left-10 -z-20 size-72 rounded-full bg-primary/40 blur-3xl" />
+          <div className="grid max-w-2xl gap-8">
             <div>
               <h2 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Prêt à commencer ?</h2>
               <p className="mt-3 max-w-xl text-lg text-green-100">

@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Inscription", description: "Créez g
 export default function RegisterPage() {
   return (
     <>
-      <h1 className="text-2xl font-semibold">Créer un compte</h1>
+      <h1 className="text-3xl font-extrabold tracking-[-0.02em]">Créer un compte</h1>
       <p className="mt-1 text-sm text-muted-foreground">Gratuit. Moins de deux minutes.</p>
       <Suspense>
         <RegisterForm />
