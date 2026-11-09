@@ -76,7 +76,7 @@ test.describe("site public", () => {
     const res = await page.goto("/admin/joblink");
     expect(page.url()).toContain("/admin/joblink");
     expect(res?.headers()["x-robots-tag"]).toContain("noindex");
-    await expect(page.getByRole("heading", { name: "Tableau de bord JOBLINK" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tableau de bord" })).toBeVisible();
     // Le reste de l'administration exige toujours un compte admin
     const admin = await request.get("/admin", { maxRedirects: 0 });
     expect([302, 303, 307, 308]).toContain(admin.status());

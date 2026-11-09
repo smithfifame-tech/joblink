@@ -1,8 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
-  Activity, AlertTriangle, ArrowUpRight, Banknote, Briefcase, ClipboardList, ExternalLink, Gavel, Inbox,
-  LayoutDashboard, LogOut, Mail, RefreshCw, ShieldCheck, ShieldAlert, Sparkles, UserCheck, Users, Wallet,
+  Activity, AlertTriangle, ArrowUpRight, Banknote, Briefcase, CheckCircle2, CircleDashed, ClipboardList, CreditCard,
+  ExternalLink, Gavel, Globe, Inbox, LayoutDashboard, LogOut, Mail, MailCheck, RefreshCw, Rocket, ShieldCheck,
+  ShieldAlert, Sparkles, TrendingUp, UserCheck, Users, Wallet,
 } from "lucide-react";
+import { PHOTOS } from "@/lib/media/photos";
+import { categoryPhotoByName } from "@/lib/media/category-photos";
 import type { OwnerOverview, OwnerUser } from "@/lib/owner-panel/server";
 import { ownerLogoutAction } from "@/app/admin/joblink/actions";
 import { LogoMark } from "@/components/layout/logo";
@@ -11,10 +15,18 @@ import { JobStatusBadge, PaymentStatusBadge } from "@/components/jobs/status-bad
 import { formatDate, formatDateTime, formatRelative, formatXOF } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import type { JobStatus, PaymentStatus } from "@/types/db";
-import { BarList, TrendChart } from "./trend-chart";
+import { BarList, Sparkline, TrendChart } from "./trend-chart";
 import { ContactHandled, JobVisibilityToggle, ReportActions, SuspendToggle, UserSearch } from "./owner-actions";
 
 export type OwnerTab = "overview" | "users" | "jobs" | "moderation" | "security";
+
+/** Statuts de mise en service (calculés côté serveur, sans aucune valeur secrète). */
+export type OwnerHealth = {
+  payments: "off" | "sandbox" | "fedapay_test" | "live";
+  google: boolean;
+  emailConfirm: boolean | null;
+  production: boolean;
+};
 
 const NAV: { tab: OwnerTab; label: string; icon: typeof LayoutDashboard }[] = [
   { tab: "overview", label: "Vue d'ensemble", icon: LayoutDashboard },
@@ -55,7 +67,7 @@ function CardTitle({ icon: Icon, children, action }: { icon: typeof Users; child
   );
 }
 
-function Kpi({ label, value, hint, icon: Icon, delay }: { label: string; value: number; hint?: string; icon: typeof Users; delay: number }) {
+function Kpi({ label, value, hint, icon: Icon, delay, spark }: { label: string; value: number; hint?: string; icon: typeof Users; delay: number; spark?: number[] }) {
   return (
     <Card delay={delay} className="group relative overflow-hidden transition-all duration-500 hover:-translate-y-1 hover:shadow-[var(--shadow-lift)]">
       <div aria-hidden className="absolute -right-8 -top-8 size-28 rounded-full bg-accent/70 transition-transform duration-700 group-hover:scale-125" />
@@ -68,6 +80,7 @@ function Kpi({ label, value, hint, icon: Icon, delay }: { label: string; value: 
           <CountUp value={value} />
         </p>
         {hint && <p className="mt-1 text-xs font-medium text-primary">{hint}</p>}
+        {spark && <Sparkline values={spark} className="mt-3 h-9 w-full" />}
       </div>
     </Card>
   );
@@ -75,6 +88,10 @@ function Kpi({ label, value, hint, icon: Icon, delay }: { label: string; value: 
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="rounded-2xl border border-dashed bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">{children}</p>;
+}
+
+function todoCount(k: OwnerOverview["kpis"]) {
+  return k.reports_open + k.disputes_open + k.verifications_pending + k.payments_pending + k.payouts_pending + k.contact_new;
 }
 
 function Shell({ tab, data, children }: { tab: OwnerTab; data: OwnerOverview; children: React.ReactNode }) {
@@ -179,26 +196,30 @@ function Shell({ tab, data, children }: { tab: OwnerTab; data: OwnerOverview; ch
             ))}
           </nav>
 
+          {tab === "overview" ? (
+            <WelcomeHero greet={greet} now={now} data={data} />
+          ) : (
           <header className="jl-rise mb-5 flex flex-wrap items-end justify-between gap-4 px-1">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {greet} · {formatDate(now, "EEEE d MMMM yyyy")}
-              </p>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-[-0.02em] sm:text-4xl">
-                {NAV.find((n) => n.tab === tab)?.label}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Données du {formatDateTime(data.generated_at)}</span>
-              <Link
-                href={tab === "overview" ? "/admin/joblink" : `/admin/joblink?tab=${tab}`}
-                className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-1.5 font-semibold text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary-strong"
-                prefetch={false}
-              >
-                <RefreshCw className="size-3.5" /> Actualiser
-              </Link>
-            </div>
-          </header>
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {greet} · {formatDate(now, "EEEE d MMMM yyyy")}
+                </p>
+                <h1 className="mt-1 text-3xl font-extrabold tracking-[-0.02em] sm:text-4xl">
+                  {NAV.find((n) => n.tab === tab)?.label}
+                </h1>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Données du {formatDateTime(data.generated_at)}</span>
+                <Link
+                  href={`/admin/joblink?tab=${tab}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-1.5 font-semibold text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary-strong"
+                  prefetch={false}
+                >
+                  <RefreshCw className="size-3.5" /> Actualiser
+                </Link>
+              </div>
+            </header>
+          )}
 
           {children}
         </div>
@@ -207,7 +228,168 @@ function Shell({ tab, data, children }: { tab: OwnerTab; data: OwnerOverview; ch
   );
 }
 
-function Overview({ data }: { data: OwnerOverview }) {
+function WelcomeHero({ greet, now, data }: { greet: string; now: Date; data: OwnerOverview }) {
+  const k = data.kpis;
+  const todo = todoCount(k);
+  const photo = PHOTOS.market;
+  const actions = [
+    { href: "/", label: "Voir le site", icon: Globe, external: true },
+    { href: "/admin/joblink?tab=users", label: "Utilisateurs", icon: Users },
+    { href: "/admin/joblink?tab=jobs", label: "Missions", icon: Briefcase },
+    { href: "/admin/joblink?tab=moderation", label: "Signalements", icon: ShieldAlert },
+  ];
+  return (
+    <section className="jl-rise relative isolate mb-5 overflow-hidden rounded-[1.75rem] text-white shadow-[var(--shadow-lift)]">
+      <Image src={photo.src} alt="" fill priority sizes="(min-width: 1024px) 1100px, 100vw" className="-z-20 object-cover object-[50%_60%] animate-[kenburns_16s_ease-out_both]" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(105deg,rgb(11_46_26/0.96)_0%,rgb(20_83_45/0.85)_45%,rgb(11_46_26/0.45)_100%)]" />
+      <div aria-hidden className="jl-dots absolute inset-0 -z-10 opacity-[0.12] [mask-image:linear-gradient(to_right,#000,transparent_70%)]" />
+      <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[1.3fr_1fr] xl:items-end">
+        <div>
+          <p className="text-sm font-medium text-green-100/90">{greet} · {formatDate(now, "EEEE d MMMM yyyy")}</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.02em] text-white sm:text-4xl">Vue d&apos;ensemble</h1>
+          <p className="mt-2 max-w-xl text-[15px] text-white/85">
+            {todo > 0 ? (
+              <>
+                <strong className="text-amber-300">{todo} élément{todo > 1 ? "s" : ""}</strong> demande{todo > 1 ? "nt" : ""} votre attention. Le reste de la plateforme tourne normalement.
+              </>
+            ) : (
+              <>Tout est à jour : <strong className="text-green-300">rien à traiter</strong> pour le moment.</>
+            )}
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {actions.map((a) => (
+              <Link
+                key={a.label}
+                href={a.href}
+                target={a.external ? "_blank" : undefined}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/25 backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white hover:text-primary-strong"
+              >
+                <a.icon className="size-4" /> {a.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { label: "Missions ouvertes", value: k.jobs_open.toLocaleString("fr-FR") },
+            { label: "Inscrits (7 j)", value: `+${k.users_7d.toLocaleString("fr-FR")}` },
+            { label: "Commissions (30 j)", value: formatXOF(k.commissions_30d) },
+          ].map((m) => (
+            <div key={m.label} className="rounded-2xl bg-white/10 p-3 ring-1 ring-white/15 backdrop-blur">
+              <p className="text-[11px] font-medium text-white/70">{m.label}</p>
+              <p className="mt-1 truncate text-sm font-extrabold tabular-nums sm:text-lg">{m.value}</p>
+            </div>
+          ))}
+          <div className="col-span-3 flex items-center justify-between gap-2 text-xs text-white/70">
+            <span>Données du {formatDateTime(data.generated_at)} · photo {photo.author} / Unsplash</span>
+            <Link href="/admin/joblink" prefetch={false} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white hover:bg-white/20">
+              <RefreshCw className="size-3" /> Actualiser
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LaunchChecklist({ health }: { health: OwnerHealth }) {
+  const items: { icon: typeof Users; label: string; ok: boolean; status: string; hint?: string }[] = [
+    {
+      icon: CreditCard,
+      label: "Paiements Mobile Money",
+      ok: health.payments === "live",
+      status: { off: "Non configurés", sandbox: "Mode test (simulateur)", fedapay_test: "FedaPay en mode test", live: "FedaPay actif" }[health.payments],
+      hint: health.payments === "live" ? undefined : "Créez votre compte marchand FedaPay et ajoutez les clés dans Vercel.",
+    },
+    {
+      icon: Globe,
+      label: "Connexion avec Google",
+      ok: health.google,
+      status: health.google ? "Activée" : "À configurer",
+      hint: health.google ? undefined : "Identifiant OAuth Google Cloud à coller dans Supabase.",
+    },
+    {
+      icon: MailCheck,
+      label: "Confirmation des e-mails",
+      ok: health.emailConfirm === true,
+      status: health.emailConfirm === null ? "Inconnu" : health.emailConfirm ? "Activée" : "Désactivée",
+      hint: health.emailConfirm ? undefined : "Configurez l'envoi d'e-mails (Resend) puis réactivez la confirmation.",
+    },
+    {
+      icon: Rocket,
+      label: "Mode production",
+      ok: health.production,
+      status: health.production ? "Activé" : "Site en mode test",
+      hint: health.production ? undefined : "À activer une fois les paiements réels configurés.",
+    },
+  ];
+  const done = items.filter((i) => i.ok).length;
+  return (
+    <Card delay={380}>
+      <CardTitle icon={Rocket} action={<span className="rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-primary-strong">{done}/{items.length}</span>}>
+        Mise en service
+      </CardTitle>
+      <div className="mb-4 h-2 overflow-hidden rounded-full bg-muted">
+        <div className="h-full origin-left rounded-full bg-primary animate-[bar-grow_1s_cubic-bezier(.22,1,.36,1)_both]" style={{ width: `${(done / items.length) * 100}%` }} />
+      </div>
+      <ul className="grid gap-3">
+        {items.map((it) => (
+          <li key={it.label} className="flex gap-3">
+            <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", it.ok ? "bg-accent text-primary" : "bg-amber-50 text-amber-600")}>
+              <it.icon className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold">
+                {it.label}
+                <span className={cn("inline-flex items-center gap-1 text-xs font-semibold", it.ok ? "text-primary" : "text-amber-700")}>
+                  {it.ok ? <CheckCircle2 className="size-3.5" /> : <CircleDashed className="size-3.5" />} {it.status}
+                </span>
+              </p>
+              {it.hint && <p className="mt-0.5 text-xs text-muted-foreground">{it.hint}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function Funnel({ k }: { k: OwnerOverview["kpis"] }) {
+  const steps = [
+    { label: "Comptes créés", value: k.users },
+    { label: "Missions publiées", value: k.jobs_total },
+    { label: "Candidatures reçues", value: k.applications },
+    { label: "Missions terminées", value: k.jobs_completed },
+  ];
+  const max = Math.max(1, ...steps.map((s) => s.value));
+  const perJob = k.jobs_total > 0 ? (k.applications / k.jobs_total).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) : "—";
+  return (
+    <Card delay={440}>
+      <CardTitle icon={TrendingUp}>Parcours sur la plateforme</CardTitle>
+      <ul className="grid gap-3.5">
+        {steps.map((s, i) => (
+          <li key={s.label}>
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-muted-foreground">{s.label}</span>
+              <span className="font-bold tabular-nums">{s.value.toLocaleString("fr-FR")}</span>
+            </div>
+            <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full origin-left rounded-full bg-gradient-to-r from-primary to-primary-strong animate-[bar-grow_1s_cubic-bezier(.22,1,.36,1)_both]"
+                style={{ width: `${Math.max(3, (s.value / max) * 100)}%`, animationDelay: `${i * 120}ms` }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 rounded-xl bg-accent/60 px-3 py-2 text-xs text-accent-foreground">
+        En moyenne <strong>{perJob}</strong> candidature{perJob === "1" ? "" : "s"} par mission publiée.
+      </p>
+    </Card>
+  );
+}
+
+function Overview({ data, health }: { data: OwnerOverview; health: OwnerHealth }) {
   const k = data.kpis;
   const todo = [
     { label: "Signalements ouverts", value: k.reports_open, icon: AlertTriangle, href: "/admin/joblink?tab=moderation" },
@@ -221,8 +403,8 @@ function Overview({ data }: { data: OwnerOverview }) {
   return (
     <div className="grid gap-5">
       {/* Bandeau revenus + KPI */}
-      <div className="grid gap-5 xl:grid-cols-[1.25fr_1fr_1fr_1fr]">
-        <section className="jl-rise relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-primary via-[#15803d] to-primary-strong p-6 text-white shadow-[var(--shadow-lift)] md:col-span-1">
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-[1.25fr_1fr_1fr_1fr]">
+        <section className="jl-rise relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-primary via-[#15803d] to-primary-strong p-6 text-white shadow-[var(--shadow-lift)] sm:col-span-2 xl:col-span-1">
           <div aria-hidden className="absolute -right-16 -top-16 size-56 rounded-full bg-white/10" />
           <div aria-hidden className="absolute -bottom-20 right-10 size-44 rounded-full bg-black/10" />
           <div className="relative">
@@ -243,8 +425,8 @@ function Overview({ data }: { data: OwnerOverview }) {
             </div>
           </div>
         </section>
-        <Kpi label="Utilisateurs" value={k.users} hint={`+${k.users_7d} cette semaine`} icon={Users} delay={80} />
-        <Kpi label="Missions ouvertes" value={k.jobs_open} hint={`+${k.jobs_7d} publiées cette semaine`} icon={Briefcase} delay={140} />
+        <Kpi label="Utilisateurs" value={k.users} hint={`+${k.users_7d} cette semaine`} icon={Users} delay={80} spark={data.series.map((d) => d.users)} />
+        <Kpi label="Missions ouvertes" value={k.jobs_open} hint={`+${k.jobs_7d} publiées cette semaine`} icon={Briefcase} delay={140} spark={data.series.map((d) => d.jobs)} />
         <Kpi label="Candidatures" value={k.applications} hint={`${k.jobs_active} missions en cours`} icon={ClipboardList} delay={200} />
       </div>
 
@@ -277,8 +459,10 @@ function Overview({ data }: { data: OwnerOverview }) {
         </Card>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Card delay={380}>
+      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+        <LaunchChecklist health={health} />
+        <Funnel k={k} />
+        <Card delay={500}>
           <CardTitle icon={Users}>Répartition des comptes</CardTitle>
           <div className="flex h-3 overflow-hidden rounded-full bg-muted">
             <div className="h-full origin-left bg-primary animate-[bar-grow_1s_cubic-bezier(.22,1,.36,1)_both]" style={{ width: `${(k.clients / roleTotal) * 100}%` }} />
@@ -291,11 +475,14 @@ function Overview({ data }: { data: OwnerOverview }) {
             <div><dt className="text-muted-foreground">Comptes suspendus</dt><dd className="mt-1 font-bold tabular-nums text-red-600">{k.suspended}</dd></div>
           </dl>
         </Card>
-        <Card delay={440}>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card delay={560}>
           <CardTitle icon={Briefcase}>Catégories les plus demandées</CardTitle>
           <BarList items={data.by_category} empty="Aucune mission publiée pour l'instant." />
         </Card>
-        <Card delay={500}>
+        <Card delay={620}>
           <CardTitle icon={LayoutDashboard}>Villes des membres</CardTitle>
           <BarList items={data.by_city} empty="Aucun membre pour l'instant." />
         </Card>
@@ -380,9 +567,16 @@ function UsersTab({ users, q }: { users: { total: number; items: OwnerUser[] }; 
                 {users.items.map((u, i) => (
                   <tr key={u.id} className="jl-rise transition-colors hover:bg-accent/30" style={{ animationDelay: `${120 + i * 25}ms` }}>
                     <td className="px-5 py-3.5">
-                      <p className="font-semibold">{u.first_name} {u.last_name}</p>
-                      <p className="text-xs text-muted-foreground">{u.email}{u.phone ? ` · ${u.phone}` : ""}</p>
-                      {u.is_suspended && <p className="mt-1 text-xs font-medium text-red-600">Suspendu{u.suspended_reason ? ` — ${u.suspended_reason}` : ""}</p>}
+                      <div className="flex items-center gap-3">
+                        <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-sm font-bold", u.is_suspended ? "bg-red-50 text-red-700" : "bg-gradient-to-br from-accent to-green-100 text-primary-strong")}>
+                          {u.first_name.charAt(0)}{u.last_name.charAt(0)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold">{u.first_name} {u.last_name}</p>
+                          <p className="text-xs text-muted-foreground">{u.email}{u.phone ? ` · ${u.phone}` : ""}</p>
+                          {u.is_suspended && <p className="mt-1 text-xs font-medium text-red-600">Suspendu{u.suspended_reason ? ` — ${u.suspended_reason}` : ""}</p>}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex flex-wrap gap-1">
@@ -430,6 +624,9 @@ function JobsTab({ data }: { data: OwnerOverview }) {
               className={cn("jl-rise flex flex-wrap items-center gap-4 rounded-2xl border p-4 transition-all duration-300 hover:border-primary/30 hover:shadow-[var(--shadow-soft)]", j.is_hidden && "bg-muted/50 opacity-80")}
               style={{ animationDelay: `${80 + i * 50}ms` }}
             >
+              <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                <Image src={categoryPhotoByName(j.category).src} alt="" fill sizes="56px" className="object-cover" />
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Link href={`/jobs/${j.id}`} target="_blank" className="truncate font-semibold hover:text-primary-strong">{j.title}</Link>
@@ -551,11 +748,13 @@ export function OwnerDashboard({
   data,
   users,
   q,
+  health,
 }: {
   tab: OwnerTab;
   data: OwnerOverview;
   users?: { total: number; items: OwnerUser[] };
   q: string;
+  health: OwnerHealth;
 }) {
   return (
     <Shell tab={tab} data={data}>
@@ -568,7 +767,7 @@ export function OwnerDashboard({
       ) : tab === "security" ? (
         <SecurityTab data={data} />
       ) : (
-        <Overview data={data} />
+        <Overview data={data} health={health} />
       )}
     </Shell>
   );

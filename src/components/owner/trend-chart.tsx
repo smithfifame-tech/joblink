@@ -82,3 +82,26 @@ export function BarList({ items, empty }: { items: { name: string; count: number
     </ul>
   );
 }
+
+/** Mini-courbe (sparkline) pour les cartes de chiffres clés. */
+export function Sparkline({ values, className }: { values: number[]; className?: string }) {
+  const W = 120;
+  const H = 36;
+  if (values.length < 2) return null;
+  const max = Math.max(1, ...values);
+  const step = W / (values.length - 1);
+  const pts = values.map((v, i) => [i * step, H - 3 - (v / max) * (H - 6)] as const);
+  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className={className} aria-hidden preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="spark-fill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#16a34a" stopOpacity="0.25" />
+          <stop offset="1" stopColor="#16a34a" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${line} L${W},${H} L0,${H} Z`} fill="url(#spark-fill)" />
+      <path d={line} fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}

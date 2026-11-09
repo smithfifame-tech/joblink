@@ -69,3 +69,17 @@ export const TITLE_IDEAS: Record<string, string[]> = {
   demenagement: ["Déménager un studio à Cotonou", "Charger un camion (2 h)", "Monter des meubles après déménagement"],
   autres: ["Aide ponctuelle pour un rangement", "Faire la queue pour un dossier administratif", "Petit service de quartier"],
 };
+
+/** Nom affiché → identifiant de catégorie (données de référence). */
+const BY_NAME: Record<string, string> = {
+  "plomberie": "plomberie", "électricité": "electricite", "mécanique": "mecanique", "ménage & entretien": "menage",
+  "aide à domicile": "aide-domicile", "livraison & courses": "livraison", "jardinage": "jardinage",
+  "maçonnerie & btp": "maconnerie", "menuiserie": "menuiserie", "climatisation & froid": "climatisation",
+  "développement web & mobile": "developpement", "graphisme & design": "graphisme", "dépannage informatique": "informatique",
+  "événementiel": "evenementiel", "couture & mode": "couture", "cours & formation": "cours",
+  "déménagement & manutention": "demenagement", "autres services": "autres",
+};
+
+export function categoryPhotoByName(name?: string | null): Photo {
+  return categoryPhoto(BY_NAME[(name ?? "").trim().toLowerCase()]);
+}
