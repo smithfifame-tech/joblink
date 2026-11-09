@@ -61,3 +61,23 @@ describe("regroupement des incidents", () => {
     expect(normalizeForFingerprint("Erreur 404   sur  page 12")).toBe("erreur # sur page #");
   });
 });
+
+const { INDEXNOW_KEY, publicSeoUrls, submitIndexNow } = await import("@/lib/indexnow");
+
+describe("IndexNow", () => {
+  it("liste les pages publiques (jamais les espaces privés)", () => {
+    const urls = publicSeoUrls(["plomberie"]);
+    expect(urls.some((u) => u.endsWith("/jobs?category=plomberie"))).toBe(true);
+    expect(urls.some((u) => /\/(admin|client|worker|login|register|api)\b/.test(u))).toBe(false);
+  });
+  it("envoie l'hôte, la clé et son emplacement", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 200 })) as unknown as typeof fetch;
+    const r = await submitIndexNow(["https://exemple.test/"], fetcher);
+    expect(r.ok).toBe(true);
+    const [, init] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body.key).toBe(INDEXNOW_KEY);
+    expect(body.keyLocation).toMatch(new RegExp(`/${INDEXNOW_KEY}\\.txt$`));
+    expect(body.urlList).toEqual(["https://exemple.test/"]);
+  });
+});
