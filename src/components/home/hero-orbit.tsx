@@ -130,7 +130,7 @@ function Radar({ x, y, w }: { x: number; y: number; w: number }) {
       {[0, 1.2, 2.4].map((d) => (
         <span
           key={d}
-          className="absolute left-0 top-0 block aspect-[3/1] w-full rounded-[50%] border border-primary/40 bg-primary/[0.06] animate-[radar_3.6s_cubic-bezier(.2,.6,.3,1)_infinite]"
+          className="absolute left-0 top-0 block aspect-[3/1] w-full rounded-[50%] border border-primary/40 bg-primary/[0.06] animate-[radar_3.6s_cubic-bezier(.2,.6,.3,1)_infinite_both]"
           style={{ animationDelay: `${d}s` }}
         />
       ))}
