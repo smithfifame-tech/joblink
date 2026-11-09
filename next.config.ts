@@ -45,6 +45,21 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "1mb" },
     optimizePackageImports: ["lucide-react", "date-fns"],
   },
+  /**
+   * Ancienne adresse → nouvelle (redirection permanente 308, chemin et paramètres conservés).
+   * Le fichier de validation Google reste servi sur l'ancienne adresse pour que sa propriété
+   * Search Console reste vérifiée pendant le transfert.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/:path((?!googlec9d33df673924e64\\.html$).*)",
+        has: [{ type: "host", value: "joblink-one.vercel.app" }],
+        destination: "https://joblink-benin.vercel.app/:path",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
