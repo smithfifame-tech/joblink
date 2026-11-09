@@ -59,6 +59,11 @@ export function RegisterForm() {
       }
       return setError(res.error);
     }
+    if (res.data.redirectTo) {
+      router.replace(res.data.redirectTo);
+      router.refresh();
+      return;
+    }
     router.push(`/check-email?email=${encodeURIComponent(res.data.email)}`);
   }
 

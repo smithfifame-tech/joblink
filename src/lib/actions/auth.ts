@@ -22,7 +22,7 @@ function flatten(error: { issues: { path: PropertyKey[]; message: string }[] }) 
   return out;
 }
 
-export async function registerAction(input: unknown): Promise<ActionResult<{ email: string }>> {
+export async function registerAction(input: unknown): Promise<ActionResult<{ email: string; redirectTo?: string }>> {
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Vérifiez les champs du formulaire.", fieldErrors: flatten(parsed.error) };
   const v = parsed.data;
@@ -34,7 +34,7 @@ export async function registerAction(input: unknown): Promise<ActionResult<{ ema
   }
 
   const supabase = await getSupabaseServerClient();
-  const { error } = await supabase.auth.signUp({
+  const { data: signed, error } = await supabase.auth.signUp({
     email: v.email,
     password: v.password,
     options: {
@@ -61,6 +61,12 @@ export async function registerAction(input: unknown): Promise<ActionResult<{ ema
     if (/password/i.test(error.message)) return { ok: false, error: "Mot de passe refusé : choisissez-en un plus robuste." };
     if (/rate limit/i.test(error.message)) return { ok: false, error: "Trop de tentatives. Réessayez dans quelques minutes." };
     return { ok: false, error: "Inscription impossible pour le moment. Réessayez." };
+  }
+  // Si la confirmation par e-mail est désactivée dans Supabase, la session est ouverte immédiatement :
+  // on amène directement l'utilisateur sur le site.
+  if (signed.session) {
+    const dest = safeNext(v.next) ?? "/account";
+    return { ok: true, data: { email: v.email, redirectTo: dest.includes("?") ? `${dest}&welcome=1` : `${dest}?welcome=1` } };
   }
   return { ok: true, data: { email: v.email } };
 }
