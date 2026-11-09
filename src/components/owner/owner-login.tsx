@@ -24,7 +24,7 @@ export function OwnerLogin({ available }: { available: boolean }) {
       {/* Panneau visuel : diaporama de 3 photos */}
       <aside className="relative hidden p-4 lg:block">
         <div className="sticky top-4 isolate flex h-[calc(100dvh-2rem)] min-h-[560px] flex-col justify-between overflow-hidden rounded-[2rem] p-10 text-white shadow-[var(--shadow-lift)]">
-          <PhotoCarousel slides={SLIDES} priority sizes="55vw" controlsClassName="absolute inset-x-10 bottom-8 border-t border-white/15 pt-5" />
+          <PhotoCarousel slides={SLIDES} priority sizes="55vw" controlsClassName="absolute inset-x-10 bottom-8 z-10 border-t border-white/15 pt-5" />
           <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-br from-[#0b2e1a]/95 via-[#14532d]/75 to-[#0b2e1a]/45" />
           <div aria-hidden className="jl-grid absolute inset-0 -z-10 opacity-15" />
 

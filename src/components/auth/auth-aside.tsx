@@ -49,7 +49,7 @@ export function AuthAside() {
   return (
     <aside className="relative hidden p-4 lg:block">
       <div className="sticky top-4 isolate flex h-[calc(100dvh-2rem)] min-h-[560px] flex-col justify-between overflow-hidden rounded-[2rem] p-10 text-white shadow-[var(--shadow-lift)]">
-        <PhotoCarousel slides={v.slides} priority sizes="50vw" controlsClassName="absolute inset-x-10 bottom-8 border-t border-white/15 pt-5" />
+        <PhotoCarousel slides={v.slides} priority sizes="50vw" controlsClassName="absolute inset-x-10 bottom-8 z-10 border-t border-white/15 pt-5" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-[#0b2e1a] via-[#0b2e1a]/45 to-[#0b2e1a]/10" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-[#14532d]/15 mix-blend-multiply" />
 

@@ -60,6 +60,8 @@ export function PhotoCarousel({
               alt=""
               fill
               priority={priority && i === 0}
+              // Les 3 photos sont chargées d'emblée : le fondu ne passe jamais sur une image vide.
+              loading={priority && i === 0 ? undefined : "eager"}
               sizes={sizes}
               className={cn("object-cover", s.position, i === index && "animate-[kenburns_9s_ease-out_both]")}
             />
