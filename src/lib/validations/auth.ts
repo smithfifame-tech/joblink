@@ -18,6 +18,8 @@ export const registerSchema = z
     acceptTerms: z.literal(true, { message: "Vous devez accepter les conditions générales" }),
     // Champ piège anti-robots : doit rester vide
     website: z.string().max(0).optional(),
+    // Page d'origine (ex. une mission) : l'utilisateur y revient après confirmation de l'e-mail
+    next: z.string().max(300).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.password !== v.confirmPassword) {
@@ -51,3 +53,23 @@ export function safeNext(next: string | null | undefined): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
   return next;
 }
+
+/** Finalisation du profil (comptes créés via Google) : mêmes exigences que l'inscription classique. */
+export const onboardingSchema = z
+  .object({
+    accountType: z.enum(accountTypes, { message: "Choisissez un type de compte" }),
+    firstName: personName,
+    lastName: personName,
+    phone: phoneField,
+    country: countryCode,
+    city: placeName,
+    neighborhood: placeName,
+    acceptTerms: z.literal(true, { message: "Vous devez accepter les conditions générales" }),
+    next: z.string().max(300).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (!normalizePhone(v.phone, v.country)) {
+      ctx.addIssue({ code: "custom", path: ["phone"], message: "Numéro invalide (ex. 01 97 00 00 00)" });
+    }
+  });
+export type OnboardingInput = z.input<typeof onboardingSchema>;

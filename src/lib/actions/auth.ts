@@ -6,7 +6,7 @@ import { getSupabaseAdminClient, getSupabaseServerClient } from "@/lib/supabase/
 import { SESSION_ONLY_COOKIE } from "@/lib/supabase/cookies";
 import { publicEnv } from "@/lib/env";
 import { serverEnv } from "@/lib/env.server";
-import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, safeNext } from "@/lib/validations/auth";
+import { forgotPasswordSchema, loginSchema, onboardingSchema, registerSchema, resetPasswordSchema, safeNext } from "@/lib/validations/auth";
 import { normalizePhone } from "@/lib/validations/common";
 import { getClientIp, rateLimit } from "@/lib/security/rate-limit";
 import { homeForRole } from "@/lib/auth/session";
@@ -38,7 +38,8 @@ export async function registerAction(input: unknown): Promise<ActionResult<{ ema
     email: v.email,
     password: v.password,
     options: {
-      emailRedirectTo: `${publicEnv.siteUrl}/auth/confirm?next=/account`,
+      // Après le clic dans l'e-mail : session ouverte puis retour sur le site (page d'origine ou espace personnel)
+      emailRedirectTo: `${publicEnv.siteUrl}/auth/confirm?next=${encodeURIComponent(safeNext(v.next) ?? "/account")}`,
       // Le rôle est relu et validé par le trigger SQL handle_new_user (jamais « admin »)
       data: {
         first_name: v.firstName,
@@ -163,4 +164,38 @@ export async function resendConfirmationAction(email: string): Promise<ActionRes
   const supabase = await getSupabaseServerClient();
   await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${publicEnv.siteUrl}/auth/confirm?next=/account` } });
   return { ok: true, data: undefined, message: "E-mail de confirmation renvoyé." };
+}
+
+const ONBOARDING_ERRORS: Record<string, string> = {
+  INVALID_PHONE: "Numéro de téléphone invalide.",
+  INVALID_PLACE: "Ville et quartier sont obligatoires.",
+  INVALID_NAME: "Nom et prénom sont obligatoires.",
+  ALREADY_ONBOARDED: "Votre profil est déjà complet.",
+};
+
+/** Finalise un compte créé via Google : rôle, identité, téléphone, ville et acceptation des CGU. */
+export async function completeOnboardingAction(input: unknown): Promise<ActionResult<{ redirectTo: string }>> {
+  const parsed = onboardingSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Vérifiez les champs du formulaire.", fieldErrors: flatten(parsed.error) };
+  const v = parsed.data;
+  const supabase = await getSupabaseServerClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, error: "Votre session a expiré. Reconnectez-vous." };
+
+  const { error } = await supabase.rpc("complete_onboarding", {
+    p_account_type: v.accountType,
+    p_first_name: v.firstName,
+    p_last_name: v.lastName,
+    p_phone: normalizePhone(v.phone, v.country),
+    p_country_code: v.country,
+    p_city: v.city,
+    p_neighborhood: v.neighborhood,
+  });
+  if (error) {
+    const key = Object.keys(ONBOARDING_ERRORS).find((k) => error.message.includes(k));
+    if (key === "ALREADY_ONBOARDED") return { ok: true, data: { redirectTo: safeNext(v.next) ?? "/account" } };
+    return { ok: false, error: key ? ONBOARDING_ERRORS[key]! : "Impossible d'enregistrer votre profil. Réessayez." };
+  }
+  const dest = safeNext(v.next) ?? homeForRole(v.accountType);
+  return { ok: true, data: { redirectTo: dest.includes("?") ? `${dest}&welcome=1` : `${dest}?welcome=1` } };
 }

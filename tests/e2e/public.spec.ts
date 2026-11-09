@@ -81,4 +81,28 @@ test.describe("site public", () => {
     const admin = await request.get("/admin", { maxRedirects: 0 });
     expect([302, 303, 307, 308]).toContain(admin.status());
   });
+
+  test("le détail d'une mission exige un compte (retour à la mission après connexion)", async ({ page }) => {
+    await page.goto("/jobs/00000000-0000-4000-8000-000000000001");
+    await expect(page).toHaveURL(/\/login\?next=%2Fjobs%2F/);
+    await expect(page.getByText("Connectez-vous ou créez un compte gratuit pour voir le détail")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Créer un compte gratuitement" })).toHaveAttribute("href", /\/register\?next=%2Fjobs%2F/);
+  });
+
+  test("accueil : 5 sections puis « Voir plus » déploie le reste", async ({ page }) => {
+    await page.goto("/");
+    const more = page.getByRole("button", { name: "Voir plus sur JOBLINK" });
+    await expect(more).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Questions fréquentes" })).toBeHidden();
+    await more.click();
+    await expect(page.getByRole("heading", { name: "Questions fréquentes" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Réduire" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("connexion : bouton Google présent et filigrane du logo", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByRole("button", { name: /Continuer avec Google/ })).toBeVisible();
+    await page.goto("/register");
+    await expect(page.getByRole("button", { name: /S'inscrire avec Google/ })).toBeVisible();
+  });
 });

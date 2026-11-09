@@ -25,6 +25,8 @@ export interface Profile {
   notify_new_jobs: boolean;
   is_suspended: boolean;
   suspended_reason: string | null;
+  /** NULL tant que le profil n'est pas finalisé (ex. inscription via Google) */
+  terms_accepted_at: string | null;
   created_at: string;
 }
 

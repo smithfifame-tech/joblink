@@ -4,7 +4,9 @@ import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource/montserrat/latin-800.css";
 import "@fontsource/montserrat/latin-900.css";
 import { Toaster } from "sonner";
+import { Suspense } from "react";
 import { LogoutProvider } from "@/components/auth/logout";
+import { WelcomeToast } from "@/components/auth/welcome-toast";
 import { RevealObserver } from "@/components/motion/reveal-observer";
 import { publicEnv } from "@/lib/env";
 import "./globals.css";
@@ -44,6 +46,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh">
         <LogoutProvider>{children}</LogoutProvider>
         <RevealObserver />
+        <Suspense>
+          <WelcomeToast />
+        </Suspense>
         <Toaster position="top-center" richColors closeButton toastOptions={{ duration: 4500 }} />
       </body>
     </html>

@@ -46,6 +46,7 @@ export function RevealObserver() {
     const check = () => {
       ticking = false;
       document.querySelectorAll('[data-reveal]:not([data-reveal="in"])').forEach((el) => {
+        if (el.closest("[inert]")) return; // contenu replié (« Voir plus ») : animé à l'ouverture
         const r = el.getBoundingClientRect();
         if (r.top < window.innerHeight * 0.96 && r.bottom > 0) {
           io.unobserve(el);

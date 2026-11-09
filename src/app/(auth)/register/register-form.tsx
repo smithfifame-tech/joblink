@@ -45,6 +45,7 @@ export function RegisterForm() {
       city: "",
       neighborhood: "",
       website: "",
+      next: sp.get("next") ?? undefined,
     },
   });
   const e = formState.errors;
@@ -62,7 +63,7 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mt-6 grid gap-5" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-5" noValidate>
       <CityDatalist />
       {error && <Alert variant="error">{error}</Alert>}
 
@@ -149,7 +150,10 @@ export function RegisterForm() {
 
       <Button type="submit" size="lg" loading={formState.isSubmitting}>Créer mon compte</Button>
       <p className="text-center text-sm text-muted-foreground">
-        Déjà inscrit ? <Link href="/login" className="font-medium text-primary hover:underline">Se connecter</Link>
+        Déjà inscrit ?{" "}
+        <Link href={sp.get("next") ? `/login?next=${encodeURIComponent(sp.get("next")!)}` : "/login"} className="font-medium text-primary hover:underline">
+          Se connecter
+        </Link>
       </p>
     </form>
   );

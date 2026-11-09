@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { publicEnv } from "@/lib/env";
-import { getCategories, searchJobs } from "@/services/catalog";
+import { getCategories } from "@/services/catalog";
 
 export const revalidate = 3600;
 
@@ -14,13 +14,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: p === "/jobs" || p === "" ? ("hourly" as const) : ("monthly" as const),
     priority: p === "" ? 1 : p === "/jobs" ? 0.9 : 0.5,
   }));
-  const [categories, jobs] = await Promise.all([
-    getCategories().catch(() => []),
-    searchJobs({ sort: "recent" }, 100).then((r) => r.rows).catch(() => []),
-  ]);
+  // Le détail des missions est réservé aux membres : seules les listes publiques sont indexées.
+  const categories = await getCategories().catch(() => []);
   return [
     ...statics,
     ...categories.map((c) => ({ url: `${base}/jobs?category=${c.slug}`, lastModified: now, changeFrequency: "daily" as const, priority: 0.6 })),
-    ...jobs.map((j) => ({ url: `${base}/jobs/${j.id}`, lastModified: new Date(j.created_at), changeFrequency: "daily" as const, priority: 0.7 })),
   ];
 }

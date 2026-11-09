@@ -14,7 +14,7 @@ export default async function CheckEmailPage({ searchParams }: { searchParams: P
       <h1 className="mt-5 text-3xl font-extrabold tracking-[-0.02em]">Vérifiez votre boîte e-mail</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Si l&apos;adresse {email ? <strong className="text-foreground">{email}</strong> : "indiquée"} est valide, un lien de confirmation vient d&apos;y être envoyé.
-        Cliquez dessus pour activer votre compte (pensez aux spams).
+        Cliquez dessus : votre compte est activé, vous êtes connecté automatiquement et ramené sur JOBLINK (pensez à vérifier les spams).
       </p>
       <div className="mt-6 grid gap-2">
         <Button asChild><Link href="/login">Aller à la connexion</Link></Button>

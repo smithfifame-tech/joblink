@@ -53,10 +53,18 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   };
 });
 
-export async function requireUser(next?: string): Promise<SessionUser> {
+/** Profil incomplet (ex. compte créé via Google) : téléphone, ville et CGU encore à renseigner. */
+export function needsOnboarding(user: SessionUser): boolean {
+  return Boolean(user.profile && !user.profile.terms_accepted_at);
+}
+
+export async function requireUser(next?: string, opts?: { allowIncomplete?: boolean }): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) redirect(`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`);
   if (user.profile?.is_suspended) redirect("/suspended");
+  if (!opts?.allowIncomplete && needsOnboarding(user)) {
+    redirect(`/onboarding${next ? `?next=${encodeURIComponent(next)}` : ""}`);
+  }
   return user;
 }
 

@@ -15,6 +15,11 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const supabase = await getSupabaseServerClient();
 
+  // Erreur renvoyée par Supabase (lien expiré, refus de Google…)
+  if (searchParams.get("error") || searchParams.get("error_description")) {
+    return NextResponse.redirect(`${origin}/login?error=link`);
+  }
+
   let ok = false;
   if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
@@ -22,8 +27,16 @@ export async function GET(request: NextRequest) {
   } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     ok = !error;
+    if (!ok) {
+      // Lien de confirmation ouvert dans un autre navigateur que celui de l'inscription :
+      // l'adresse est bien confirmée par Supabase, il suffit de se connecter.
+      return NextResponse.redirect(`${origin}/login?confirmed=1&next=${encodeURIComponent(next)}`);
+    }
   }
   if (!ok) return NextResponse.redirect(`${origin}/login?error=link`);
   const dest = type === "recovery" ? "/reset-password" : next;
-  return NextResponse.redirect(`${origin}${dest}`);
+  // Petit signal de bienvenue affiché par le site après la confirmation
+  const url = new URL(`${origin}${dest}`);
+  if (type !== "recovery") url.searchParams.set("welcome", "1");
+  return NextResponse.redirect(url);
 }

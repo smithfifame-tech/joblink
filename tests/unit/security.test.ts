@@ -15,8 +15,10 @@ describe("limitation de débit", () => {
 
 describe("protection des routes", () => {
   it("identifie les espaces privés", () => {
-    for (const p of ["/client/dashboard", "/worker/jobs", "/admin", "/admin/users", "/messages/abc", "/notifications"]) expect(isProtectedPath(p)).toBe(true);
-    for (const p of ["/", "/jobs", "/jobs/123", "/login", "/clients-celebres", "/administratif"]) expect(isProtectedPath(p)).toBe(false);
+    for (const p of ["/client/dashboard", "/worker/jobs", "/admin", "/admin/users", "/messages/abc", "/notifications", "/onboarding", "/jobs/123"])
+      expect(isProtectedPath(p)).toBe(true);
+    // La liste des missions reste publique ; le tableau de bord propriétaire a son propre mot de passe
+    for (const p of ["/", "/jobs", "/login", "/clients-celebres", "/administratif", "/admin/joblink"]) expect(isProtectedPath(p)).toBe(false);
   });
 });
 

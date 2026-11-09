@@ -3,7 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import { publicEnv, isSupabaseConfigured } from "@/lib/env";
 import { SESSION_ONLY_COOKIE, applySessionPreference } from "./cookies";
 
-const PROTECTED_PREFIXES = ["/client", "/worker", "/admin", "/notifications", "/messages", "/account"];
+const PROTECTED_PREFIXES = ["/client", "/worker", "/admin", "/notifications", "/messages", "/account", "/onboarding"];
+/** Détail d'une mission : réservé aux membres inscrits (la liste /jobs reste publique). */
+const MEMBER_ONLY = /^\/jobs\/[^/]+\/?$/;
 const AUTH_PAGES = ["/login", "/register", "/forgot-password"];
 
 /** Tableau de bord du propriétaire : protégé par son propre mot de passe (voir lib/owner-panel). */
@@ -14,6 +16,7 @@ export function isOwnerPanelPath(pathname: string): boolean {
 
 export function isProtectedPath(pathname: string): boolean {
   if (isOwnerPanelPath(pathname)) return false;
+  if (MEMBER_ONLY.test(pathname)) return true;
   return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

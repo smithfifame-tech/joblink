@@ -15,7 +15,7 @@ import { ApplicationStatusBadge, JobStatusBadge, PAY_TYPE_LABEL } from "@/compon
 import { CategoryIcon } from "@/components/layout/category-icon";
 import { AreaMap } from "@/components/maps/area-map";
 import { getPublicJob } from "@/services/catalog";
-import { getSessionUser } from "@/lib/auth/session";
+import { requireUser } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { publicEnv, storagePublicUrl } from "@/lib/env";
 import { formatDate, formatRelative, formatXOF } from "@/lib/utils/format";
@@ -42,8 +42,9 @@ export default async function JobDetailPage({ params }: { params: Params }) {
   const job = await getPublicJob(id);
   if (!job) notFound();
 
+  // Détail réservé aux membres inscrits (profil finalisé) — la liste des missions reste publique.
+  const user = await requireUser(`/jobs/${id}`);
   const supabase = await getSupabaseServerClient();
-  const user = await getSessionUser();
   const [{ data: clientRow }, { data: images }, myApp, fav] = await Promise.all([
     supabase.from("public_profiles").select("*").eq("id", job.client_id).maybeSingle<PublicProfile>(),
     supabase.from("job_images").select("id, storage_path").eq("job_id", job.id).order("sort_order"),

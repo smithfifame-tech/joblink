@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { HeroOrbit } from "@/components/home/hero-orbit";
 import { CountUp } from "@/components/motion/count-up";
 import { SectionHeading } from "@/components/home/section-heading";
+import { ShowMore } from "@/components/home/show-more";
 import { TalentMosaic } from "@/components/home/talent-mosaic";
 import { getCategories, getCategoryCounts, getPublicStats, getRecentJobs } from "@/services/catalog";
 import { getFeaturedReviews } from "@/services/reviews";
@@ -334,6 +335,8 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ───────────── LE RESTE : déployé sur « Voir plus » ───────────── */}
+      <ShowMore label="Voir plus sur JOBLINK" lessLabel="Réduire">
       {/* ───────────── POURQUOI (bento) ───────────── */}
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 sm:pb-24" aria-labelledby="why-title">
         <SectionHeading id="why-title" eyebrow="Pourquoi JOBLINK" title="La confiance, conçue dès le départ" />
@@ -505,6 +508,7 @@ export default async function HomePage() {
           </Link>
         </p>
       </section>
+      </ShowMore>
     </>
   );
 }
