@@ -160,3 +160,7 @@
   .jl-motion { display: none !important; }
 }
 @keyframes kenburns { from { transform: scale(1.12); } to { transform: scale(1); } }
+
+/* Tableau de bord propriétaire */
+@keyframes chart-reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }

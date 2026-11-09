@@ -71,4 +71,14 @@ test.describe("site public", () => {
     await mobileNav.getByRole("link", { name: "Comment ça marche" }).click();
     await expect(page).toHaveURL(/how-it-works/);
   });
+
+  test("tableau de bord propriétaire : écran de mot de passe, jamais indexé, /admin reste réservé", async ({ page, request }) => {
+    const res = await page.goto("/admin/joblink");
+    expect(page.url()).toContain("/admin/joblink");
+    expect(res?.headers()["x-robots-tag"]).toContain("noindex");
+    await expect(page.getByRole("heading", { name: "Tableau de bord JOBLINK" })).toBeVisible();
+    // Le reste de l'administration exige toujours un compte admin
+    const admin = await request.get("/admin", { maxRedirects: 0 });
+    expect([302, 303, 307, 308]).toContain(admin.status());
+  });
 });

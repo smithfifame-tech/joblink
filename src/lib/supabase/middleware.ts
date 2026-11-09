@@ -6,7 +6,14 @@ import { SESSION_ONLY_COOKIE, applySessionPreference } from "./cookies";
 const PROTECTED_PREFIXES = ["/client", "/worker", "/admin", "/notifications", "/messages", "/account"];
 const AUTH_PAGES = ["/login", "/register", "/forgot-password"];
 
+/** Tableau de bord du propriétaire : protégé par son propre mot de passe (voir lib/owner-panel). */
+export const OWNER_PANEL_PATH = "/admin/joblink";
+export function isOwnerPanelPath(pathname: string): boolean {
+  return pathname === OWNER_PANEL_PATH || pathname.startsWith(`${OWNER_PANEL_PATH}/`);
+}
+
 export function isProtectedPath(pathname: string): boolean {
+  if (isOwnerPanelPath(pathname)) return false;
   return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
@@ -61,6 +68,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Les pages privées ne doivent jamais être indexées
-  if (isProtectedPath(pathname)) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  if (isProtectedPath(pathname) || isOwnerPanelPath(pathname)) response.headers.set("X-Robots-Tag", "noindex, nofollow");
   return response;
 }

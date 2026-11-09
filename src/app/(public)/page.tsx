@@ -83,8 +83,28 @@ export default async function HomePage() {
 
       {/* ───────────── HERO ───────────── */}
       <section className="relative isolate overflow-hidden bg-white">
-        <div aria-hidden className="absolute inset-0 -z-20 bg-[radial-gradient(60rem_34rem_at_50%_-8%,#dcfce7_0%,#f0fdf4_38%,transparent_70%)]" />
-        <div aria-hidden className="jl-grid absolute inset-0 -z-20 opacity-70 [mask-image:radial-gradient(ellipse_70%_60%_at_50%_30%,#000_25%,transparent_75%)]" />
+        {/* Arrière-plan photo : un marché animé du Bénin, fondu dans le blanc pour garder le texte lisible */}
+        <div aria-hidden className="absolute inset-0 -z-30 overflow-hidden">
+          <Image
+            src={PHOTOS.market.src}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-[50%_60%] animate-[kenburns_18s_ease-out_both]"
+          />
+        </div>
+        <div aria-hidden className="absolute inset-0 -z-20 bg-[linear-gradient(to_bottom,rgb(255_255_255/0.97)_0%,rgb(255_255_255/0.9)_38%,rgb(255_255_255/0.55)_62%,rgb(240_253_244/0.35)_80%,rgb(255_255_255/0.95)_100%)]" />
+        <div aria-hidden className="absolute inset-0 -z-20 bg-[radial-gradient(60rem_34rem_at_50%_-8%,rgb(220_252_231/0.9)_0%,transparent_65%)]" />
+        <div aria-hidden className="jl-grid absolute inset-0 -z-20 opacity-50 [mask-image:radial-gradient(ellipse_70%_60%_at_50%_30%,#000_25%,transparent_75%)]" />
+        <a
+          href={PHOTOS.market.authorUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute bottom-3 right-4 z-10 rounded-full bg-black/30 px-2.5 py-1 text-[10px] text-white/90 backdrop-blur hover:bg-black/45"
+        >
+          Photo : {PHOTOS.market.author} / Unsplash
+        </a>
 
         <div className="relative z-10 mx-auto max-w-7xl px-4 pt-10 text-center sm:px-6 sm:pt-16 lg:pt-20">
           <p className="jl-rise inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 py-1 pl-1 pr-3 text-xs font-medium text-primary-strong shadow-sm backdrop-blur">

@@ -56,6 +56,12 @@ export const PHOTOS = {
     author: "Desmond Charles Mushi",
     authorUrl: `https://unsplash.com/@akili_karoli${ref}`,
   },
+  market: {
+    src: u("1753818293309-7a9829090678"),
+    alt: "Vue d'un grand marché animé au Bénin, toits de tôle et rues commerçantes",
+    author: "Greg Keelen",
+    authorUrl: `https://unsplash.com/@greg_keelen${ref}`,
+  },
 } satisfies Record<string, Photo>;
 
 export const PHOTO_CREDITS = Array.from(new Map(Object.values(PHOTOS).map((p) => [p.author, p.authorUrl])).entries());

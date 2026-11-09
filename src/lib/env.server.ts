@@ -12,6 +12,7 @@ export const serverEnv = {
   emailFrom: process.env.EMAIL_FROM ?? "JOBLINK <no-reply@joblink.bj>",
   contactInbox: process.env.CONTACT_INBOX ?? "",
   cronSecret: process.env.CRON_SECRET ?? "",
+  ownerPanelServerKey: process.env.OWNER_PANEL_SERVER_KEY ?? "",
 };
 
 export const isProduction = () => serverEnv.appEnv === "production";

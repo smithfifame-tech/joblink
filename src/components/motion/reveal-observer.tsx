@@ -39,9 +39,34 @@ export function RevealObserver() {
       for (const m of muts) m.addedNodes.forEach((n) => n instanceof Element && (n.matches("[data-reveal]") ? io.observe(n) : scan(n)));
     });
     mo.observe(document.body, { childList: true, subtree: true });
+
+    // Filet de sécurité : si l'IntersectionObserver est retardé (onglet en arrière-plan, navigateur ancien),
+    // on vérifie aussi la position au défilement pour qu'aucun contenu ne reste invisible.
+    let ticking = false;
+    const check = () => {
+      ticking = false;
+      document.querySelectorAll('[data-reveal]:not([data-reveal="in"])').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.top < window.innerHeight * 0.96 && r.bottom > 0) {
+          io.unobserve(el);
+          show(el);
+        }
+      });
+    };
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.setTimeout(check, 120);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    const first = window.setTimeout(check, 400);
     return () => {
       io.disconnect();
       mo.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      window.clearTimeout(first);
     };
   }, [pathname]);
   return null;
