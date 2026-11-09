@@ -90,7 +90,7 @@ export function SiteHeader() {
             </>
           )}
           <Button asChild className="rounded-full px-5 shadow-[0_6px_16px_-4px_rgb(22_163_74/0.5)]">
-            <Link href={dashboardHref ? "/client/jobs/new" : "/register?type=client"}>Publier une mission</Link>
+            <Link href={dashboardHref ? "/client/jobs/new" : "/register?type=client"} prefetch={false}>Publier une mission</Link>
           </Button>
         </div>
 
@@ -121,7 +121,7 @@ export function SiteHeader() {
             <div className="mt-auto grid gap-2 border-t p-4">
               <SheetClose asChild>
                 <Button asChild size="lg">
-                  <Link href={dashboardHref ? "/client/jobs/new" : "/register?type=client"}>Publier une mission</Link>
+                  <Link href={dashboardHref ? "/client/jobs/new" : "/register?type=client"} prefetch={false}>Publier une mission</Link>
                 </Button>
               </SheetClose>
               {dashboardHref ? (

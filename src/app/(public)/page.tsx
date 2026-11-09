@@ -143,7 +143,7 @@ export default async function HomePage() {
           </div>
 
           <div className="jl-rise mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm [animation-delay:950ms]">
-            <Link href="/client/jobs/new" className="group inline-flex items-center gap-1.5 font-semibold text-primary-strong">
+            <Link href="/client/jobs/new" prefetch={false} className="group inline-flex items-center gap-1.5 font-semibold text-primary-strong">
               Publier une mission gratuitement
               <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
@@ -278,7 +278,7 @@ export default async function HomePage() {
                 description="Soyez le premier à publier une mission dans votre quartier."
                 action={
                   <Button asChild className="rounded-full">
-                    <Link href="/client/jobs/new">Publier une mission</Link>
+                    <Link href="/client/jobs/new" prefetch={false}>Publier une mission</Link>
                   </Button>
                 }
               />
