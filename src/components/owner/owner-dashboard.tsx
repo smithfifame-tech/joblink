@@ -3,11 +3,11 @@ import Link from "next/link";
 import {
   Activity, AlertTriangle, ArrowUpRight, Banknote, Briefcase, CheckCircle2, CircleDashed, ClipboardList, CreditCard,
   ExternalLink, Gavel, Globe, Inbox, LayoutDashboard, LogOut, Mail, MailCheck, RefreshCw, Rocket, ShieldCheck,
-  ShieldAlert, Sparkles, TrendingUp, UserCheck, Users, Wallet,
+  ShieldAlert, Sparkles, TrendingUp, UserCheck, Users, Wallet, Bot, Siren, Wrench, Zap,
 } from "lucide-react";
 import { PHOTOS } from "@/lib/media/photos";
 import { categoryPhotoByName } from "@/lib/media/category-photos";
-import type { OwnerOverview, OwnerUser } from "@/lib/owner-panel/server";
+import type { OwnerIncident, OwnerIncidents, OwnerOverview, OwnerUser } from "@/lib/owner-panel/server";
 import { ownerLogoutAction } from "@/app/admin/joblink/actions";
 import { LogoMark } from "@/components/layout/logo";
 import { CountUp } from "@/components/motion/count-up";
@@ -16,9 +16,9 @@ import { formatDate, formatDateTime, formatRelative, formatXOF } from "@/lib/uti
 import { cn } from "@/lib/utils";
 import type { JobStatus, PaymentStatus } from "@/types/db";
 import { BarList, Sparkline, TrendChart } from "./trend-chart";
-import { ContactHandled, JobVisibilityToggle, ReportActions, SuspendToggle, UserSearch } from "./owner-actions";
+import { ContactHandled, IncidentActions, JobVisibilityToggle, ReportActions, SuspendToggle, UserSearch } from "./owner-actions";
 
-export type OwnerTab = "overview" | "users" | "jobs" | "moderation" | "security";
+export type OwnerTab = "overview" | "users" | "jobs" | "moderation" | "incidents" | "security";
 
 /** Statuts de mise en service (calculés côté serveur, sans aucune valeur secrète). */
 export type OwnerHealth = {
@@ -33,6 +33,7 @@ const NAV: { tab: OwnerTab; label: string; icon: typeof LayoutDashboard }[] = [
   { tab: "users", label: "Utilisateurs", icon: Users },
   { tab: "jobs", label: "Missions", icon: Briefcase },
   { tab: "moderation", label: "Signalements & messages", icon: ShieldAlert },
+  { tab: "incidents", label: "Incidents & IA", icon: Bot },
   { tab: "security", label: "Sécurité", icon: ShieldCheck },
 ];
 
@@ -94,9 +95,10 @@ function todoCount(k: OwnerOverview["kpis"]) {
   return k.reports_open + k.disputes_open + k.verifications_pending + k.payments_pending + k.payouts_pending + k.contact_new;
 }
 
-function Shell({ tab, data, children }: { tab: OwnerTab; data: OwnerOverview; children: React.ReactNode }) {
+function Shell({ tab, data, incidents, children }: { tab: OwnerTab; data: OwnerOverview; incidents: OwnerIncidents | null; children: React.ReactNode }) {
   const badge: Partial<Record<OwnerTab, number>> = {
     moderation: data.kpis.reports_open + data.kpis.contact_new,
+    incidents: incidents ? incidents.counts.open + incidents.counts.critical : 0,
   };
   const now = new Date();
   const hour = Number(
@@ -197,7 +199,7 @@ function Shell({ tab, data, children }: { tab: OwnerTab; data: OwnerOverview; ch
           </nav>
 
           {tab === "overview" ? (
-            <WelcomeHero greet={greet} now={now} data={data} />
+            <WelcomeHero greet={greet} now={now} data={data} incidents={incidents} />
           ) : (
           <header className="jl-rise mb-5 flex flex-wrap items-end justify-between gap-4 px-1">
               <div>
@@ -228,9 +230,9 @@ function Shell({ tab, data, children }: { tab: OwnerTab; data: OwnerOverview; ch
   );
 }
 
-function WelcomeHero({ greet, now, data }: { greet: string; now: Date; data: OwnerOverview }) {
+function WelcomeHero({ greet, now, data, incidents }: { greet: string; now: Date; data: OwnerOverview; incidents: OwnerIncidents | null }) {
   const k = data.kpis;
-  const todo = todoCount(k);
+  const todo = todoCount(k) + (incidents?.counts.open ?? 0);
   const photo = PHOTOS.market;
   const actions = [
     { href: "/", label: "Voir le site", icon: Globe, external: true },
@@ -389,7 +391,7 @@ function Funnel({ k }: { k: OwnerOverview["kpis"] }) {
   );
 }
 
-function Overview({ data, health }: { data: OwnerOverview; health: OwnerHealth }) {
+function Overview({ data, health, incidents }: { data: OwnerOverview; health: OwnerHealth; incidents: OwnerIncidents | null }) {
   const k = data.kpis;
   const todo = [
     { label: "Signalements ouverts", value: k.reports_open, icon: AlertTriangle, href: "/admin/joblink?tab=moderation" },
@@ -398,6 +400,7 @@ function Overview({ data, health }: { data: OwnerOverview; health: OwnerHealth }
     { label: "Paiements en attente", value: k.payments_pending, icon: Wallet, href: "/admin/transactions" },
     { label: "Versements à effectuer", value: k.payouts_pending, icon: Banknote, href: "/admin/transactions" },
     { label: "Messages de contact", value: k.contact_new, icon: Mail, href: "/admin/joblink?tab=moderation" },
+    { label: "Incidents techniques", value: incidents?.counts.open ?? 0, icon: Siren, href: "/admin/joblink?tab=incidents" },
   ];
   const roleTotal = Math.max(1, k.clients + k.workers);
   return (
@@ -743,31 +746,150 @@ function SecurityTab({ data }: { data: OwnerOverview }) {
   );
 }
 
+const SEVERITY: Record<OwnerIncident["severity"], { label: string; cls: string }> = {
+  critical: { label: "Critique", cls: "bg-red-600 text-white" },
+  high: { label: "Important", cls: "bg-amber-100 text-amber-800" },
+  normal: { label: "Mineur", cls: "bg-muted text-muted-foreground" },
+};
+const STATUS: Record<OwnerIncident["status"], { label: string; cls: string }> = {
+  open: { label: "En attente de votre décision", cls: "bg-amber-50 text-amber-800 ring-amber-200" },
+  approved: { label: "Autorisé · l'IA va intervenir", cls: "bg-accent text-primary-strong ring-primary/20" },
+  fixing: { label: "L'IA corrige", cls: "bg-primary text-white ring-primary" },
+  resolved: { label: "Résolu", cls: "bg-green-50 text-green-700 ring-green-200" },
+  dismissed: { label: "Ignoré", cls: "bg-muted text-muted-foreground ring-border" },
+};
+const SOURCE: Record<OwnerIncident["source"], string> = {
+  client: "Navigateur d'un visiteur",
+  server: "Serveur du site",
+  monitor: "Surveillance automatique",
+  ai: "Agent IA",
+};
+
+function IncidentsTab({ incidents }: { incidents: OwnerIncidents | null }) {
+  if (!incidents) {
+    return <Card><Empty>Les incidents ne sont pas disponibles pour le moment.</Empty></Card>;
+  }
+  const c = incidents.counts;
+  const stats = [
+    { label: "À décider", value: c.open, icon: Siren, tone: c.open ? "text-amber-600 bg-amber-50" : "text-muted-foreground bg-muted" },
+    { label: "Confiés à l'IA", value: c.approved, icon: Bot, tone: "text-primary bg-accent" },
+    { label: "Résolus (7 j)", value: c.resolved_7d, icon: CheckCircle2, tone: "text-primary bg-accent" },
+    { label: "Urgences traitées seules (7 j)", value: c.auto_7d, icon: Zap, tone: "text-primary-strong bg-accent" },
+  ];
+  return (
+    <div className="grid gap-5">
+      <section className="jl-rise relative overflow-hidden rounded-[1.5rem] bg-primary-strong p-6 text-white shadow-[var(--shadow-lift)]">
+        <div aria-hidden className="jl-dots absolute inset-0 opacity-[0.08]" />
+        <div className="relative grid gap-5 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-semibold text-green-200"><Bot className="size-4" /> Agent de maintenance IA</p>
+            <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-white">Vous décidez, l&apos;IA corrige.</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/80">
+              Chaque erreur du site apparaît ici. L&apos;IA ne touche à rien sans votre accord : cliquez sur « Autoriser l&apos;IA à corriger »
+              et elle s&apos;en charge lors de son prochain passage (toutes les heures), puis note ici ce qu&apos;elle a fait.
+            </p>
+          </div>
+          <ul className="grid gap-2 text-sm">
+            {[
+              { icon: ShieldCheck, text: "Sans votre autorisation, l'IA observe seulement." },
+              { icon: Zap, text: "Exception : si le site est inaccessible, elle agit seule (retour à la dernière version qui fonctionnait) puis vous le signale ici." },
+              { icon: Wrench, text: "Jamais de modification des mots de passe, clés, paiements ou données des membres." },
+            ].map((r) => (
+              <li key={r.text} className="flex gap-2.5 rounded-2xl bg-white/[0.07] p-3 ring-1 ring-white/10">
+                <r.icon className="mt-0.5 size-4 shrink-0 text-green-300" /> <span className="text-white/85">{r.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        {stats.map((s, i) => (
+          <Card key={s.label} delay={80 + i * 60} className="p-4 sm:p-5">
+            <span className={cn("grid size-9 place-items-center rounded-xl", s.tone)}><s.icon className="size-4" /></span>
+            <p className="mt-3 text-xs text-muted-foreground">{s.label}</p>
+            <p className="mt-0.5 text-2xl font-extrabold tabular-nums">{s.value}</p>
+          </Card>
+        ))}
+      </div>
+
+      <Card delay={320}>
+        <CardTitle icon={Siren}>Incidents récents</CardTitle>
+        {incidents.items.length ? (
+          <ul className="grid gap-3">
+            {incidents.items.map((it) => (
+              <li
+                key={it.id}
+                className={cn(
+                  "rounded-2xl border p-4 transition-colors",
+                  it.severity === "critical" && it.status !== "resolved" && it.status !== "dismissed" ? "border-red-200 bg-red-50/40" : "",
+                  (it.status === "resolved" || it.status === "dismissed") && "opacity-75",
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className={cn("rounded-full px-2 py-0.5 font-bold", SEVERITY[it.severity].cls)}>{SEVERITY[it.severity].label}</span>
+                  <span className={cn("rounded-full px-2 py-0.5 font-semibold ring-1", STATUS[it.status].cls)}>{STATUS[it.status].label}</span>
+                  {it.auto_action && <span className="rounded-full bg-primary-strong px-2 py-0.5 font-semibold text-white">Action automatique (urgence)</span>}
+                  <span className="text-muted-foreground">{SOURCE[it.source]} · {it.occurrences} fois · dernière {formatRelative(it.last_seen)}</span>
+                </div>
+                <p className="mt-2 break-words text-sm font-semibold">{it.title}</p>
+                {it.path && <p className="mt-0.5 font-mono text-xs text-muted-foreground">{it.path}</p>}
+                {it.details && (
+                  <details className="mt-2 text-xs">
+                    <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">Détails techniques</summary>
+                    <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-muted/60 p-3 font-mono text-[11px] leading-relaxed">{it.details}</pre>
+                  </details>
+                )}
+                {it.ai_notes && (
+                  <div className="mt-3 rounded-xl bg-accent/60 p-3 text-sm">
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-primary-strong"><Bot className="size-3.5" /> Compte rendu de l&apos;IA</p>
+                    <p className="mt-1 whitespace-pre-line leading-relaxed text-foreground/90">{it.ai_notes}</p>
+                  </div>
+                )}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">Vu pour la première fois le {formatDateTime(it.first_seen)}</span>
+                  <IncidentActions id={it.id} status={it.status} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Empty>Aucun incident : le site fonctionne normalement.</Empty>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export function OwnerDashboard({
   tab,
   data,
   users,
   q,
   health,
+  incidents,
 }: {
   tab: OwnerTab;
   data: OwnerOverview;
   users?: { total: number; items: OwnerUser[] };
   q: string;
   health: OwnerHealth;
+  incidents: OwnerIncidents | null;
 }) {
   return (
-    <Shell tab={tab} data={data}>
+    <Shell tab={tab} data={data} incidents={incidents}>
       {tab === "users" && users ? (
         <UsersTab users={users} q={q} />
       ) : tab === "jobs" ? (
         <JobsTab data={data} />
       ) : tab === "moderation" ? (
         <ModerationTab data={data} />
+      ) : tab === "incidents" ? (
+        <IncidentsTab incidents={incidents} />
       ) : tab === "security" ? (
         <SecurityTab data={data} />
       ) : (
-        <Overview data={data} health={health} />
+        <Overview data={data} health={health} incidents={incidents} />
       )}
     </Shell>
   );

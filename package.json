@@ -26,7 +26,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
-    "fedapay": "^1.2.5",
     "geist": "^1.9.2",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.70.0",

@@ -5,7 +5,7 @@ import { getAuthProviders } from "@/lib/auth/providers";
 import { isPaymentConfigured } from "@/lib/payments/registry";
 import { isProduction, serverEnv } from "@/lib/env.server";
 
-const TABS: OwnerTab[] = ["overview", "users", "jobs", "moderation", "security"];
+const TABS: OwnerTab[] = ["overview", "users", "jobs", "moderation", "incidents", "security"];
 
 type SearchParams = Promise<{ tab?: string; q?: string }>;
 
@@ -17,10 +17,11 @@ export default async function OwnerPanelPage({ searchParams }: { searchParams: S
   const tab = (TABS as string[]).includes(sp.tab ?? "") ? (sp.tab as OwnerTab) : "overview";
   const q = (sp.q ?? "").slice(0, 100);
 
-  const [data, users, providers] = await Promise.all([
+  const [data, users, providers, incidents] = await Promise.all([
     ownerApi.overview(),
     tab === "users" ? ownerApi.users(q, 100, 0) : Promise.resolve(undefined),
     getAuthProviders(),
+    ownerApi.incidents().catch(() => null),
   ]);
 
   // État de mise en service (aucune valeur secrète n'est transmise au navigateur, seulement des statuts)
@@ -34,5 +35,5 @@ export default async function OwnerPanelPage({ searchParams }: { searchParams: S
     emailConfirm: providers.emailConfirm,
     production: isProduction(),
   };
-  return <OwnerDashboard tab={tab} data={data} users={users} q={q} health={health} />;
+  return <OwnerDashboard tab={tab} data={data} users={users} q={q} health={health} incidents={incidents} />;
 }

@@ -66,3 +66,9 @@ export async function markContactAction(messageId: string) {
   if (!parsed.success) return { ok: false, error: "Données invalides." };
   return guarded(() => ownerApi.markContact(parsed.data));
 }
+
+export async function setIncidentAction(incidentId: string, action: "approve" | "dismiss" | "reopen" | "resolve") {
+  const parsed = z.object({ incidentId: id, action: z.enum(["approve", "dismiss", "reopen", "resolve"]) }).safeParse({ incidentId, action });
+  if (!parsed.success) return { ok: false, error: "Données invalides." };
+  return guarded(() => ownerApi.setIncident(parsed.data.incidentId, parsed.data.action));
+}

@@ -7,9 +7,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   markContactAction,
   moderateJobAction,
+  setIncidentAction,
   setSuspensionAction,
   updateReportAction,
 } from "@/app/admin/joblink/actions";
+import { Bot, CheckCheck, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Result = { ok: boolean; error?: string };
@@ -137,5 +139,54 @@ export function UserSearch() {
         {pending && <Loader2 className="size-3.5 animate-spin" />} Rechercher
       </button>
     </form>
+  );
+}
+
+/** Décision du propriétaire sur un incident : autoriser l'IA, ignorer, marquer résolu, rouvrir. */
+export function IncidentActions({ id, status }: { id: string; status: "open" | "approved" | "fixing" | "resolved" | "dismissed" }) {
+  const { pending, run } = useAct();
+  const [confirming, setConfirming] = useState(false);
+  if (status === "approved" || status === "fixing") {
+    return (
+      <button type="button" disabled={pending} onClick={() => run(() => setIncidentAction(id, "reopen"), "Autorisation retirée.")} className={cn(pill, "border-border bg-white text-muted-foreground hover:text-foreground")}>
+        {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />} Retirer l&apos;autorisation
+      </button>
+    );
+  }
+  if (status === "resolved" || status === "dismissed") {
+    return (
+      <button type="button" disabled={pending} onClick={() => run(() => setIncidentAction(id, "reopen"), "Incident rouvert.")} className={cn(pill, "border-border bg-white text-muted-foreground hover:text-foreground")}>
+        {pending ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />} Rouvrir
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {confirming ? (
+        <span className="inline-flex animate-[pop-in_.25s_ease-out_both] items-center gap-1.5">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => setIncidentAction(id, "approve"), "Autorisé : l'IA va prendre en charge cet incident.")}
+            className={cn(pill, "border-primary bg-primary text-white hover:bg-primary-strong")}
+          >
+            {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Confirmer
+          </button>
+          <button type="button" onClick={() => setConfirming(false)} className={cn(pill, "border-border bg-white text-muted-foreground")} aria-label="Annuler">
+            <X className="size-3.5" />
+          </button>
+        </span>
+      ) : (
+        <button type="button" onClick={() => setConfirming(true)} className={cn(pill, "border-primary/30 bg-accent text-primary-strong hover:bg-primary hover:text-white")}>
+          <Bot className="size-3.5" /> Autoriser l&apos;IA à corriger
+        </button>
+      )}
+      <button type="button" disabled={pending} onClick={() => run(() => setIncidentAction(id, "resolve"), "Marqué comme résolu.")} className={cn(pill, "border-border bg-white text-muted-foreground hover:text-foreground")}>
+        <CheckCheck className="size-3.5" /> Résolu
+      </button>
+      <button type="button" disabled={pending} onClick={() => run(() => setIncidentAction(id, "dismiss"), "Incident ignoré.")} className={cn(pill, "border-border bg-white text-muted-foreground hover:border-red-200 hover:text-red-700")}>
+        <EyeOff className="size-3.5" /> Ignorer
+      </button>
+    </span>
   );
 }

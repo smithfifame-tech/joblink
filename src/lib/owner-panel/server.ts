@@ -114,7 +114,21 @@ export type OwnerUser = {
   created_at: string; is_suspended: boolean; suspended_reason: string | null; roles: string[]; jobs_count: number; applications_count: number;
 };
 
+export type OwnerIncident = {
+  id: string; source: "client" | "server" | "monitor" | "ai"; severity: "critical" | "high" | "normal"; title: string;
+  details: string | null; path: string | null; occurrences: number; first_seen: string; last_seen: string;
+  status: "open" | "approved" | "fixing" | "resolved" | "dismissed"; approved_at: string | null; resolved_at: string | null;
+  auto_action: boolean; ai_notes: string | null;
+};
+export type OwnerIncidents = {
+  counts: { open: number; approved: number; critical: number; resolved_7d: number; auto_7d: number };
+  items: OwnerIncident[];
+};
+
 export const ownerApi = {
+  incidents: () => call<OwnerIncidents>("owner_panel_incidents", {}),
+  setIncident: (incident: string, action: "approve" | "dismiss" | "reopen" | "resolve") =>
+    call<null>("owner_panel_set_incident", { p_incident: incident, p_action: action }),
   overview: () => call<OwnerOverview>("owner_panel_overview", {}),
   users: (q: string, limit = 50, offset = 0) =>
     call<{ total: number; items: OwnerUser[] }>("owner_panel_users", { p_search: q || null, p_limit: limit, p_offset: offset }),

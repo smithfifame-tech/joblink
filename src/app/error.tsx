@@ -3,11 +3,13 @@
 import { useEffect } from "react";
 import { RefreshCw, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportClientError } from "@/lib/monitoring/report-client";
 
 /** Erreur inattendue ou réseau : message clair, sans détail technique exposé. */
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);
+    reportClientError("page", error);
   }, [error]);
   return (
     <main className="mx-auto flex min-h-[60dvh] max-w-md flex-col items-center justify-center gap-4 px-4 text-center">

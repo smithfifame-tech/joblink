@@ -9,6 +9,7 @@ import { publicEnv } from "@/lib/env";
 import { forgotPasswordSchema, loginSchema, onboardingSchema, registerSchema, resetPasswordSchema, safeNext } from "@/lib/validations/auth";
 import { normalizePhone } from "@/lib/validations/common";
 import { getClientIp, rateLimit } from "@/lib/security/rate-limit";
+import { isPasswordPwned, PWNED_MESSAGE } from "@/lib/security/pwned";
 import { homeForRole } from "@/lib/auth/session";
 import type { ActionResult } from "@/lib/errors";
 import type { AppRole } from "@/types/db";
@@ -31,6 +32,9 @@ export async function registerAction(input: unknown): Promise<ActionResult<{ ema
   const ip = await getClientIp();
   if (!(await rateLimit("register:ip", ip, 5, 3600)) || !(await rateLimit("register:email", v.email, 3, 3600))) {
     return { ok: false, error: "Trop d'inscriptions depuis cette connexion. Réessayez plus tard." };
+  }
+  if (await isPasswordPwned(v.password)) {
+    return { ok: false, error: PWNED_MESSAGE, fieldErrors: { password: [PWNED_MESSAGE] } };
   }
 
   const supabase = await getSupabaseServerClient();
@@ -157,6 +161,9 @@ export async function resetPasswordAction(input: unknown): Promise<ActionResult>
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Lien expiré. Refaites une demande de réinitialisation." };
+  if (await isPasswordPwned(parsed.data.password)) {
+    return { ok: false, error: PWNED_MESSAGE, fieldErrors: { password: [PWNED_MESSAGE] } };
+  }
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return { ok: false, error: "Impossible de modifier le mot de passe. Choisissez-en un différent." };
   // Déconnexion des autres sessions après changement de mot de passe

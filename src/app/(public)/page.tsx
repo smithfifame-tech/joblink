@@ -15,7 +15,9 @@ import { ConfigNotice } from "@/components/layout/config-notice";
 import { FaqList, FAQ_ITEMS } from "@/components/layout/faq-list";
 import { LogoMark } from "@/components/layout/logo";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { HeroOrbit } from "@/components/home/hero-orbit";
+import { HeroShowcase } from "@/components/home/hero-showcase";
+import { jsonLd, organizationJsonLd, SEO_TITLE, websiteJsonLd } from "@/lib/seo";
+import type { Metadata } from "next";
 import { HeroMedia } from "@/components/home/hero-media";
 import { CountUp } from "@/components/motion/count-up";
 import { SectionHeading } from "@/components/home/section-heading";
@@ -69,6 +71,11 @@ function AnimatedWords({ text, start = 0, step = 70 }: { text: string; start?: n
   );
 }
 
+export const metadata: Metadata = {
+  title: { absolute: SEO_TITLE },
+  alternates: { canonical: "/" },
+};
+
 export default async function HomePage() {
   const [categories, jobs, stats, counts, reviews] = await Promise.all([
     getCategories().catch(() => []),
@@ -82,6 +89,7 @@ export default async function HomePage() {
   return (
     <>
       <ConfigNotice />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd([organizationJsonLd(), websiteJsonLd()]) }} />
 
       {/* ───────────── HERO ───────────── */}
       <section className="relative isolate overflow-hidden bg-white">
@@ -94,7 +102,7 @@ export default async function HomePage() {
         <div className="relative z-10 mx-auto max-w-7xl px-4 pt-10 text-center sm:px-6 sm:pt-16 lg:pt-20">
           <p className="jl-rise inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 py-1 pl-1 pr-3 text-xs font-medium text-primary-strong shadow-sm backdrop-blur">
             <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-white">Bénin</span>
-            Missions et services géolocalisés
+            JOBLINK · missions et services géolocalisés
           </p>
 
           <h1 className="mx-auto mt-6 max-w-6xl text-balance text-[2.3rem] font-extrabold leading-[1.05] tracking-[-0.03em] [word-spacing:0.05em] sm:text-6xl lg:text-[4.1rem]">
@@ -138,8 +146,8 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="relative z-0 mt-6 px-2 sm:mt-0 sm:px-6 lg:-mt-2">
-          <HeroOrbit />
+        <div className="relative z-0 mt-10 px-3 pb-12 sm:mt-12 sm:px-6">
+          <HeroShowcase />
         </div>
 
         {stats && (
