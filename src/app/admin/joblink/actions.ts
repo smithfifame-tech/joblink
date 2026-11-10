@@ -72,3 +72,27 @@ export async function setIncidentAction(incidentId: string, action: "approve" | 
   if (!parsed.success) return { ok: false, error: "Données invalides." };
   return guarded(() => ownerApi.setIncident(parsed.data.incidentId, parsed.data.action));
 }
+
+/** Pages internes autorisées comme lien de l'annonce (jamais de lien externe). */
+const ANNOUNCEMENT_LINKS = ["", "/jobs", "/map", "/client/jobs/new", "/register?type=worker", "/how-it-works", "/faq", "/contact"] as const;
+
+export async function setAnnouncementAction(input: { message: string; tone: string; linkUrl: string; linkLabel: string; active: boolean; hours: number | null }) {
+  const parsed = z
+    .object({
+      message: z.string().trim().max(240),
+      tone: z.enum(["info", "success", "warning"]),
+      linkUrl: z.enum(ANNOUNCEMENT_LINKS),
+      linkLabel: z.string().trim().max(40),
+      active: z.boolean(),
+      hours: z.union([z.null(), z.number().int().min(1).max(24 * 90)]),
+    })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Données invalides." };
+  const d = parsed.data;
+  if (d.active && !d.message) return { ok: false, error: "Écrivez un message avant de publier l'annonce." };
+  const res = await guarded(() =>
+    ownerApi.setAnnouncement({ message: d.message, tone: d.tone, linkUrl: d.linkUrl || null, linkLabel: d.linkLabel || null, active: d.active, hours: d.hours }),
+  );
+  if (res.ok) revalidatePath("/api/announcement");
+  return res;
+}

@@ -125,7 +125,17 @@ export type OwnerIncidents = {
   items: OwnerIncident[];
 };
 
+export type OwnerAnnouncement = {
+  message: string; tone: "info" | "success" | "warning"; link_url: string | null; link_label: string | null;
+  active: boolean; expires_at: string | null; updated_at: string; visible: boolean;
+};
+
 export const ownerApi = {
+  announcement: () => call<OwnerAnnouncement>("owner_panel_get_announcement", {}),
+  setAnnouncement: (a: { message: string; tone: string; linkUrl: string | null; linkLabel: string | null; active: boolean; hours: number | null }) =>
+    call<null>("owner_panel_set_announcement", {
+      p_message: a.message, p_tone: a.tone, p_link_url: a.linkUrl, p_link_label: a.linkLabel, p_active: a.active, p_hours: a.hours,
+    }),
   incidents: () => call<OwnerIncidents>("owner_panel_incidents", {}),
   setIncident: (incident: string, action: "approve" | "dismiss" | "reopen" | "resolve") =>
     call<null>("owner_panel_set_incident", { p_incident: incident, p_action: action }),

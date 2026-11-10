@@ -3,11 +3,11 @@ import Link from "next/link";
 import {
   Activity, AlertTriangle, ArrowUpRight, Banknote, Briefcase, CheckCircle2, CircleDashed, ClipboardList, CreditCard,
   ExternalLink, Gavel, Globe, Inbox, LayoutDashboard, LogOut, Mail, MailCheck, RefreshCw, Rocket, ShieldCheck,
-  ShieldAlert, Sparkles, TrendingUp, UserCheck, Users, Wallet, Bot, Siren, Wrench, Zap,
+  ShieldAlert, Megaphone, Sparkles, TrendingUp, UserCheck, Users, Wallet, Bot, Siren, Wrench, Zap,
 } from "lucide-react";
 import { PHOTOS } from "@/lib/media/photos";
 import { categoryPhotoByName } from "@/lib/media/category-photos";
-import type { OwnerIncident, OwnerIncidents, OwnerOverview, OwnerUser } from "@/lib/owner-panel/server";
+import type { OwnerAnnouncement, OwnerIncident, OwnerIncidents, OwnerOverview, OwnerUser } from "@/lib/owner-panel/server";
 import { ownerLogoutAction } from "@/app/admin/joblink/actions";
 import { LogoMark } from "@/components/layout/logo";
 import { CountUp } from "@/components/motion/count-up";
@@ -16,10 +16,10 @@ import { formatDate, formatDateTime, formatRelative, formatXOF } from "@/lib/uti
 import { cn } from "@/lib/utils";
 import type { JobStatus, PaymentStatus } from "@/types/db";
 import { BarList, Sparkline, TrendChart } from "./trend-chart";
-import { ContactHandled, IncidentActions, ReportActions, SuspendToggle, UserSearch } from "./owner-actions";
-import { ExportCsv, JobsExplorer, LivePanel } from "./owner-tools";
+import { ContactHandled, IncidentActions, ReportActions, UserSearch } from "./owner-actions";
+import { AnnouncementForm, ExportCsv, JobsExplorer, LivePanel, UsersExplorer } from "./owner-tools";
 
-export type OwnerTab = "overview" | "users" | "jobs" | "moderation" | "incidents" | "security";
+export type OwnerTab = "overview" | "users" | "jobs" | "moderation" | "incidents" | "site" | "security";
 
 /** Statuts de mise en service (calculés côté serveur, sans aucune valeur secrète). */
 export type OwnerHealth = {
@@ -35,6 +35,7 @@ const NAV: { tab: OwnerTab; label: string; icon: typeof LayoutDashboard }[] = [
   { tab: "jobs", label: "Missions", icon: Briefcase },
   { tab: "moderation", label: "Signalements & messages", icon: ShieldAlert },
   { tab: "incidents", label: "Incidents & IA", icon: Bot },
+  { tab: "site", label: "Annonce du site", icon: Megaphone },
   { tab: "security", label: "Sécurité", icon: ShieldCheck },
 ];
 
@@ -563,76 +564,27 @@ function UsersTab({ users, q }: { users: { total: number; items: OwnerUser[] }; 
     <div className="grid gap-5">
       <div className="jl-rise flex flex-wrap items-center justify-between gap-3">
         <UserSearch />
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-muted-foreground">
-            {users.total.toLocaleString("fr-FR")} utilisateur{users.total > 1 ? "s" : ""}{q ? ` pour « ${q} »` : ""}
-          </p>
-          <ExportCsv
-            filename="joblink-utilisateurs"
-            label="Exporter la liste (CSV)"
-            headers={["Prénom", "Nom", "E-mail", "Téléphone", "Rôles", "Ville", "Quartier", "Missions", "Candidatures", "Suspendu", "Inscription"]}
-            rows={users.items.map((u) => [u.first_name, u.last_name, u.email, u.phone, u.roles.map((r) => ROLES[r] ?? r).join(", "), u.city, u.neighborhood, u.jobs_count, u.applications_count, u.is_suspended ? "Oui" : "Non", u.created_at.slice(0, 10)])}
-          />
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {users.total.toLocaleString("fr-FR")} utilisateur{users.total > 1 ? "s" : ""}{q ? ` pour « ${q} »` : ""}
+        </p>
       </div>
-      <Card delay={80} className="overflow-hidden p-0 sm:p-0">
-        {users.items.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Membre</th>
-                  <th className="px-5 py-3 font-semibold">Rôles</th>
-                  <th className="px-5 py-3 font-semibold">Ville</th>
-                  <th className="px-5 py-3 font-semibold">Activité</th>
-                  <th className="px-5 py-3 font-semibold">Inscription</th>
-                  <th className="px-5 py-3 text-right font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {users.items.map((u, i) => (
-                  <tr key={u.id} className="jl-rise transition-colors hover:bg-accent/30" style={{ animationDelay: `${120 + i * 25}ms` }}>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-sm font-bold", u.is_suspended ? "bg-red-50 text-red-700" : "bg-gradient-to-br from-accent to-green-100 text-primary-strong")}>
-                          {u.first_name.charAt(0)}{u.last_name.charAt(0)}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-semibold">{u.first_name} {u.last_name}</p>
-                          <p className="text-xs text-muted-foreground">{u.email}{u.phone ? ` · ${u.phone}` : ""}</p>
-                          {u.is_suspended && <p className="mt-1 text-xs font-medium text-red-600">Suspendu{u.suspended_reason ? ` — ${u.suspended_reason}` : ""}</p>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex flex-wrap gap-1">
-                        {u.roles.map((r) => (
-                          <span key={r} className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", r === "admin" ? "bg-primary-strong text-white" : "bg-accent text-primary-strong")}>
-                            {ROLES[r] ?? r}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-muted-foreground">{[u.neighborhood, u.city].filter(Boolean).join(", ") || "—"}</td>
-                    <td className="px-5 py-3.5 text-xs text-muted-foreground">{u.jobs_count} mission{u.jobs_count > 1 ? "s" : ""} · {u.applications_count} candidature{u.applications_count > 1 ? "s" : ""}</td>
-                    <td className="px-5 py-3.5 text-xs text-muted-foreground">{formatDate(u.created_at)}</td>
-                    <td className="px-5 py-3.5 text-right">
-                      {u.roles.includes("admin") ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
-                        <SuspendToggle userId={u.id} suspended={u.is_suspended} name={u.first_name} />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-6"><Empty>Aucun utilisateur ne correspond à cette recherche.</Empty></div>
-        )}
+      <Card delay={80}>
+        <UsersExplorer users={users.items} />
       </Card>
     </div>
+  );
+}
+
+function SiteTab({ announcement }: { announcement: OwnerAnnouncement | null }) {
+  return (
+    <Card>
+      <CardTitle icon={Megaphone}>Bandeau d&apos;annonce</CardTitle>
+      {announcement ? (
+        <AnnouncementForm initial={announcement} />
+      ) : (
+        <Empty>L&apos;annonce du site est momentanément indisponible. Réessayez dans un instant.</Empty>
+      )}
+    </Card>
   );
 }
 
@@ -867,6 +819,7 @@ export function OwnerDashboard({
   q,
   health,
   incidents,
+  announcement,
 }: {
   tab: OwnerTab;
   data: OwnerOverview;
@@ -874,6 +827,7 @@ export function OwnerDashboard({
   q: string;
   health: OwnerHealth;
   incidents: OwnerIncidents | null;
+  announcement?: OwnerAnnouncement | null;
 }) {
   return (
     <Shell tab={tab} data={data} incidents={incidents}>
@@ -885,6 +839,8 @@ export function OwnerDashboard({
         <ModerationTab data={data} />
       ) : tab === "incidents" ? (
         <IncidentsTab incidents={incidents} />
+      ) : tab === "site" ? (
+        <SiteTab announcement={announcement ?? null} />
       ) : tab === "security" ? (
         <SecurityTab data={data} />
       ) : (

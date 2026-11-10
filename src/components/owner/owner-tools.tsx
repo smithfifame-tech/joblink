@@ -3,14 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { Download, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
+import { Download, Eye, EyeOff, Loader2, Save, Search, X } from "lucide-react";
+import { setAnnouncementAction } from "@/app/admin/joblink/actions";
+import { AnnouncementView, type AnnouncementTone } from "@/components/layout/announcement-view";
+import type { OwnerAnnouncement, OwnerUser } from "@/lib/owner-panel/server";
 import { categoryPhotoByName } from "@/lib/media/category-photos";
 import { JobStatusBadge } from "@/components/jobs/status-badge";
-import { formatRelative, formatXOF } from "@/lib/utils/format";
+import { formatDate, formatDateTime, formatRelative, formatXOF } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import type { JobStatus } from "@/types/db";
-import { JobVisibilityToggle } from "./owner-actions";
+import { JobVisibilityToggle, SuspendToggle } from "./owner-actions";
 
 /* ───────────── État du site en direct + actualisation automatique ───────────── */
 
@@ -258,6 +262,263 @@ export function JobsExplorer({ jobs }: { jobs: OwnerJobRow[] }) {
       ) : (
         <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">Aucune mission ne correspond à ces critères.</p>
       )}
+    </div>
+  );
+}
+
+/* ───────────── Utilisateurs : filtres, tri et export ───────────── */
+
+const ROLE_LABELS: Record<string, string> = { client: "Client", worker: "Travailleur", admin: "Admin" };
+type UserFilter = "all" | "client" | "worker" | "suspended" | "inactive";
+type UserSort = "recent" | "active" | "name";
+
+export function UsersExplorer({ users }: { users: OwnerUser[] }) {
+  const [filter, setFilter] = useState<UserFilter>("all");
+  const [sort, setSort] = useState<UserSort>("recent");
+
+  const activity = (u: OwnerUser) => u.jobs_count + u.applications_count;
+  const match = (u: OwnerUser, f: UserFilter) =>
+    f === "all" ? true : f === "suspended" ? u.is_suspended : f === "inactive" ? activity(u) === 0 : u.roles.includes(f);
+  const shown = useMemo(() => {
+    const list = users.filter((u) => match(u, filter));
+    return list.sort((a, b) =>
+      sort === "name"
+        ? `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`, "fr")
+        : sort === "active"
+          ? activity(b) - activity(a)
+          : b.created_at.localeCompare(a.created_at),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users, filter, sort]);
+
+  const chips: { key: UserFilter; label: string }[] = [
+    { key: "all", label: "Tous" },
+    { key: "client", label: "Clients" },
+    { key: "worker", label: "Travailleurs" },
+    { key: "inactive", label: "Sans activité" },
+    { key: "suspended", label: "Suspendus" },
+  ];
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {chips.map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            aria-pressed={filter === c.key}
+            onClick={() => setFilter(c.key)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+              filter === c.key ? "border-primary bg-primary text-white" : "border-border bg-white text-muted-foreground hover:border-primary/40 hover:text-foreground",
+            )}
+          >
+            {c.label}
+            <span className={cn("rounded-full px-1.5 text-[10px]", filter === c.key ? "bg-white/20" : "bg-muted")}>{users.filter((u) => match(u, c.key)).length}</span>
+          </button>
+        ))}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Trier par
+            <select value={sort} onChange={(e) => setSort(e.target.value as UserSort)} className="h-9 rounded-full border bg-white px-3 text-xs font-semibold text-foreground outline-none focus:border-primary/50">
+              <option value="recent">Inscription récente</option>
+              <option value="active">Les plus actifs</option>
+              <option value="name">Nom (A → Z)</option>
+            </select>
+          </label>
+          <ExportCsv
+            filename="joblink-utilisateurs"
+            headers={["Prénom", "Nom", "E-mail", "Téléphone", "Rôles", "Ville", "Quartier", "Missions", "Candidatures", "Suspendu", "Inscription"]}
+            rows={shown.map((u) => [u.first_name, u.last_name, u.email, u.phone, u.roles.map((r) => ROLE_LABELS[r] ?? r).join(", "), u.city, u.neighborhood, u.jobs_count, u.applications_count, u.is_suspended ? "Oui" : "Non", u.created_at.slice(0, 10)])}
+          />
+        </div>
+      </div>
+
+      {shown.length ? (
+        <div className="-mx-5 overflow-x-auto border-t sm:-mx-6">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Membre</th>
+                <th className="px-5 py-3 font-semibold">Rôles</th>
+                <th className="px-5 py-3 font-semibold">Ville</th>
+                <th className="px-5 py-3 font-semibold">Activité</th>
+                <th className="px-5 py-3 font-semibold">Inscription</th>
+                <th className="px-5 py-3 text-right font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {shown.map((u) => (
+                <tr key={u.id} className="transition-colors hover:bg-accent/30">
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-sm font-bold", u.is_suspended ? "bg-red-50 text-red-700" : "bg-gradient-to-br from-accent to-green-100 text-primary-strong")}>
+                        {u.first_name.charAt(0)}{u.last_name.charAt(0)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-semibold">{u.first_name} {u.last_name}</p>
+                        <p className="text-xs text-muted-foreground">{u.email}{u.phone ? ` · ${u.phone}` : ""}</p>
+                        {u.is_suspended && <p className="mt-1 text-xs font-medium text-red-600">Suspendu{u.suspended_reason ? ` — ${u.suspended_reason}` : ""}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex flex-wrap gap-1">
+                      {u.roles.map((r) => (
+                        <span key={r} className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", r === "admin" ? "bg-primary-strong text-white" : "bg-accent text-primary-strong")}>
+                          {ROLE_LABELS[r] ?? r}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5 text-muted-foreground">{[u.neighborhood, u.city].filter(Boolean).join(", ") || "—"}</td>
+                  <td className="px-5 py-3.5 text-xs text-muted-foreground">{u.jobs_count} mission{u.jobs_count > 1 ? "s" : ""} · {u.applications_count} candidature{u.applications_count > 1 ? "s" : ""}</td>
+                  <td className="px-5 py-3.5 text-xs text-muted-foreground">{formatDate(u.created_at)}</td>
+                  <td className="px-5 py-3.5 text-right">
+                    {u.roles.includes("admin") ? <span className="text-xs text-muted-foreground">—</span> : <SuspendToggle userId={u.id} suspended={u.is_suspended} name={u.first_name} />}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">Aucun utilisateur ne correspond à ces critères.</p>
+      )}
+    </div>
+  );
+}
+
+/* ───────────── Annonce du site ───────────── */
+
+const LINKS = [
+  { value: "", label: "Aucun lien" },
+  { value: "/jobs", label: "Les missions" },
+  { value: "/map", label: "La carte" },
+  { value: "/client/jobs/new", label: "Publier une mission" },
+  { value: "/register?type=worker", label: "Devenir travailleur" },
+  { value: "/how-it-works", label: "Comment ça marche" },
+  { value: "/faq", label: "Questions fréquentes" },
+  { value: "/contact", label: "Contact" },
+];
+const DURATIONS = [
+  { value: "", label: "Jusqu'à ce que je la retire" },
+  { value: "24", label: "24 heures" },
+  { value: "72", label: "3 jours" },
+  { value: "168", label: "7 jours" },
+  { value: "720", label: "30 jours" },
+];
+const TONE_CHOICES: { value: AnnouncementTone; label: string; swatch: string }[] = [
+  { value: "info", label: "Information", swatch: "bg-primary-strong" },
+  { value: "success", label: "Bonne nouvelle", swatch: "bg-primary" },
+  { value: "warning", label: "Attention", swatch: "bg-amber-300" },
+];
+const field = "h-11 w-full rounded-xl border bg-white px-3.5 text-sm outline-none transition-shadow focus:border-primary/50 focus:ring-4 focus:ring-primary/10";
+
+export function AnnouncementForm({ initial }: { initial: OwnerAnnouncement }) {
+  const [message, setMessage] = useState(initial.message);
+  const [tone, setTone] = useState<AnnouncementTone>(initial.tone);
+  const [linkUrl, setLinkUrl] = useState(LINKS.some((l) => l.value === initial.link_url) ? (initial.link_url ?? "") : "");
+  const [linkLabel, setLinkLabel] = useState(initial.link_label ?? "");
+  const [hours, setHours] = useState("");
+  const [pending, start] = useTransition();
+
+  const save = (active: boolean) =>
+    start(async () => {
+      const r = await setAnnouncementAction({ message, tone, linkUrl, linkLabel, active, hours: hours ? Number(hours) : null });
+      if (r.ok) toast.success(active ? "Annonce publiée : elle apparaît sur le site d'ici une minute." : "Annonce retirée du site.");
+      else toast.error(r.error ?? "Action impossible.");
+    });
+
+  const preview = message.trim();
+  return (
+    <div className="grid gap-6">
+      <p className={cn("flex flex-wrap items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium", initial.visible ? "bg-accent text-primary-strong" : "bg-muted text-muted-foreground")}>
+        {initial.visible ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+        {initial.visible
+          ? `En ligne sur le site${initial.expires_at ? ` jusqu'au ${formatDateTime(initial.expires_at)}` : ""}.`
+          : initial.active && initial.expires_at
+            ? "L'annonce a expiré : elle n'est plus affichée."
+            : "Aucune annonce n'est affichée sur le site pour le moment."}
+      </p>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <label className="grid gap-1.5 text-sm font-semibold lg:col-span-2">
+          Message
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value.slice(0, 240))}
+            rows={3}
+            placeholder="Ex. : Bienvenue sur JOBLINK ! Publiez votre première mission gratuitement."
+            className={cn(field, "h-auto py-3 font-normal")}
+          />
+          <span className="text-xs font-normal text-muted-foreground">{message.length} / 240 caractères · affiché en haut de toutes les pages publiques</span>
+        </label>
+
+        <fieldset className="grid gap-1.5 text-sm font-semibold">
+          <legend className="mb-1.5">Style</legend>
+          <div className="flex flex-wrap gap-2">
+            {TONE_CHOICES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                aria-pressed={tone === t.value}
+                onClick={() => setTone(t.value)}
+                className={cn("inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors", tone === t.value ? "border-primary bg-accent text-primary-strong" : "bg-white text-muted-foreground hover:border-primary/40")}
+              >
+                <span className={cn("size-3 rounded-full", t.swatch)} /> {t.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <label className="grid gap-1.5 text-sm font-semibold">
+          Durée d&apos;affichage
+          <select value={hours} onChange={(e) => setHours(e.target.value)} className={cn(field, "font-normal")}>
+            {DURATIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-semibold">
+          Lien (page du site)
+          <select value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className={cn(field, "font-normal")}>
+            {LINKS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-semibold">
+          Texte du lien
+          <input value={linkLabel} onChange={(e) => setLinkLabel(e.target.value.slice(0, 40))} disabled={!linkUrl} placeholder="En savoir plus" className={cn(field, "font-normal disabled:bg-muted")} />
+        </label>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aperçu</p>
+        <div className="overflow-hidden rounded-2xl border">
+          {preview ? (
+            <AnnouncementView a={{ message: preview, tone, link_url: linkUrl || null, link_label: linkLabel || null }} onClose={() => {}} />
+          ) : (
+            <p className="p-5 text-center text-sm text-muted-foreground">Écrivez un message pour voir l&apos;aperçu.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={pending || !preview}
+          onClick={() => save(true)}
+          className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-white shadow-[0_12px_24px_-10px_rgb(22_163_74/0.9)] transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+        >
+          {pending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} {initial.visible ? "Mettre à jour l'annonce" : "Publier sur le site"}
+        </button>
+        {initial.active && (
+          <button type="button" disabled={pending} onClick={() => save(false)} className="inline-flex h-11 items-center gap-2 rounded-full border bg-white px-5 text-sm font-semibold text-muted-foreground transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-60">
+            <EyeOff className="size-4" /> Retirer du site
+          </button>
+        )}
+        <p className="text-xs text-muted-foreground">Dernière modification : {formatDateTime(initial.updated_at)}</p>
+      </div>
     </div>
   );
 }

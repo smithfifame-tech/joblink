@@ -15,7 +15,6 @@ import { ConfigNotice } from "@/components/layout/config-notice";
 import { FaqList, FAQ_ITEMS } from "@/components/layout/faq-list";
 import { LogoMark } from "@/components/layout/logo";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { HeroScene } from "@/components/home/hero-scene";
 import { jsonLd, organizationJsonLd, SEO_TITLE, websiteJsonLd } from "@/lib/seo";
 import type { Metadata } from "next";
 import { HeroMedia } from "@/components/home/hero-media";
@@ -146,12 +145,8 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="relative z-0 mt-10 px-3 pb-12 sm:mt-12 sm:px-6">
-          <HeroScene />
-        </div>
-
         {stats && (
-          <dl className="jl-rise mx-auto mb-12 mt-16 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-4 text-sm text-muted-foreground [animation-delay:1.3s] sm:mt-14">
+          <dl className="jl-rise mx-auto mb-4 mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-4 text-sm text-muted-foreground [animation-delay:1.1s]">
             <span className="inline-flex items-center gap-2 font-medium text-primary-strong">
               <span className="relative flex size-2">
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
@@ -171,6 +166,7 @@ export default async function HomePage() {
             ))}
           </dl>
         )}
+        <div aria-hidden className="h-14 sm:h-20" />
       </section>
 
       {/* ───────────── BANDEAU DÉFILANT ───────────── */}
