@@ -16,7 +16,8 @@ import { formatDate, formatDateTime, formatRelative, formatXOF } from "@/lib/uti
 import { cn } from "@/lib/utils";
 import type { JobStatus, PaymentStatus } from "@/types/db";
 import { BarList, Sparkline, TrendChart } from "./trend-chart";
-import { ContactHandled, IncidentActions, JobVisibilityToggle, ReportActions, SuspendToggle, UserSearch } from "./owner-actions";
+import { ContactHandled, IncidentActions, ReportActions, SuspendToggle, UserSearch } from "./owner-actions";
+import { ExportCsv, JobsExplorer, LivePanel } from "./owner-tools";
 
 export type OwnerTab = "overview" | "users" | "jobs" | "moderation" | "incidents" | "security";
 
@@ -151,6 +152,7 @@ function Shell({ tab, data, incidents, children }: { tab: OwnerTab; data: OwnerO
           </nav>
 
           <div className="mt-auto grid gap-3">
+            <LivePanel variant="sidebar" />
             <div className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
               <p className="flex items-center gap-2 text-xs font-semibold text-green-200">
                 <span className="relative flex size-2">
@@ -197,6 +199,7 @@ function Shell({ tab, data, incidents, children }: { tab: OwnerTab; data: OwnerO
               </Link>
             ))}
           </nav>
+          <LivePanel variant="bar" />
 
           {tab === "overview" ? (
             <WelcomeHero greet={greet} now={now} data={data} incidents={incidents} />
@@ -519,7 +522,19 @@ function Overview({ data, health, incidents }: { data: OwnerOverview; health: Ow
           )}
         </Card>
         <Card delay={620}>
-          <CardTitle icon={Wallet}>Derniers paiements</CardTitle>
+          <CardTitle
+            icon={Wallet}
+            action={
+              <ExportCsv
+                filename="joblink-paiements"
+                label="CSV"
+                headers={["Montant (FCFA)", "Commission (FCFA)", "Statut", "Prestataire", "N° de reçu", "Date"]}
+                rows={data.recent_payments.map((p) => [p.amount, p.commission_amount, p.status, p.provider, p.receipt_number, p.created_at.slice(0, 10)])}
+              />
+            }
+          >
+            Derniers paiements
+          </CardTitle>
           {data.recent_payments.length ? (
             <ul className="divide-y">
               {data.recent_payments.map((p) => (
@@ -548,9 +563,17 @@ function UsersTab({ users, q }: { users: { total: number; items: OwnerUser[] }; 
     <div className="grid gap-5">
       <div className="jl-rise flex flex-wrap items-center justify-between gap-3">
         <UserSearch />
-        <p className="text-sm text-muted-foreground">
-          {users.total.toLocaleString("fr-FR")} utilisateur{users.total > 1 ? "s" : ""}{q ? ` pour « ${q} »` : ""}
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            {users.total.toLocaleString("fr-FR")} utilisateur{users.total > 1 ? "s" : ""}{q ? ` pour « ${q} »` : ""}
+          </p>
+          <ExportCsv
+            filename="joblink-utilisateurs"
+            label="Exporter la liste (CSV)"
+            headers={["Prénom", "Nom", "E-mail", "Téléphone", "Rôles", "Ville", "Quartier", "Missions", "Candidatures", "Suspendu", "Inscription"]}
+            rows={users.items.map((u) => [u.first_name, u.last_name, u.email, u.phone, u.roles.map((r) => ROLES[r] ?? r).join(", "), u.city, u.neighborhood, u.jobs_count, u.applications_count, u.is_suspended ? "Oui" : "Non", u.created_at.slice(0, 10)])}
+          />
+        </div>
       </div>
       <Card delay={80} className="overflow-hidden p-0 sm:p-0">
         {users.items.length ? (
@@ -620,31 +643,7 @@ function JobsTab({ data }: { data: OwnerOverview }) {
         Missions récentes
       </CardTitle>
       {data.recent_jobs.length ? (
-        <ul className="grid gap-3">
-          {data.recent_jobs.map((j, i) => (
-            <li
-              key={j.id}
-              className={cn("jl-rise flex flex-wrap items-center gap-4 rounded-2xl border p-4 transition-all duration-300 hover:border-primary/30 hover:shadow-[var(--shadow-soft)]", j.is_hidden && "bg-muted/50 opacity-80")}
-              style={{ animationDelay: `${80 + i * 50}ms` }}
-            >
-              <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
-                <Image src={categoryPhotoByName(j.category).src} alt="" fill sizes="56px" className="object-cover" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/jobs/${j.id}`} target="_blank" className="truncate font-semibold hover:text-primary-strong">{j.title}</Link>
-                  <JobStatusBadge status={j.status as JobStatus} />
-                  {j.is_hidden && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Masquée</span>}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {j.category} · {j.neighborhood}, {j.city} · {j.applications_count} candidature{j.applications_count > 1 ? "s" : ""} · {formatRelative(j.created_at)}
-                </p>
-              </div>
-              <p className="font-bold tabular-nums text-primary-strong">{formatXOF(j.budget_amount)}</p>
-              <JobVisibilityToggle jobId={j.id} hidden={j.is_hidden} />
-            </li>
-          ))}
-        </ul>
+        <JobsExplorer jobs={data.recent_jobs} />
       ) : (
         <Empty>Aucune mission publiée pour le moment.</Empty>
       )}

@@ -15,7 +15,7 @@ import { ConfigNotice } from "@/components/layout/config-notice";
 import { FaqList, FAQ_ITEMS } from "@/components/layout/faq-list";
 import { LogoMark } from "@/components/layout/logo";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { HeroShowcase } from "@/components/home/hero-showcase";
+import { HeroScene } from "@/components/home/hero-scene";
 import { jsonLd, organizationJsonLd, SEO_TITLE, websiteJsonLd } from "@/lib/seo";
 import type { Metadata } from "next";
 import { HeroMedia } from "@/components/home/hero-media";
@@ -147,7 +147,7 @@ export default async function HomePage() {
         </div>
 
         <div className="relative z-0 mt-10 px-3 pb-12 sm:mt-12 sm:px-6">
-          <HeroShowcase />
+          <HeroScene />
         </div>
 
         {stats && (
