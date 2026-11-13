@@ -11,7 +11,7 @@ export function CancelJobButton({ jobId }: { jobId: string }) {
       label="Annuler la mission"
       icon={<Ban />}
       variant="outline"
-      title="Annuler cette mission ?"
+      title="Annuler cette mission ?"
       description="Les candidats seront prévenus. Cette action est définitive."
       input={{ label: "Motif de l'annulation", required: true }}
       confirmLabel="Annuler la mission"
@@ -25,12 +25,12 @@ export function DraftActions({ jobId }: { jobId: string }) {
   const router = useRouter();
   return (
     <>
-      <ConfirmAction label="Publier" title="Publier la mission ?" description="Elle sera visible par tous les travailleurs." action={() => publishJobAction(jobId)} />
+      <ConfirmAction label="Publier" title="Publier la mission ?" description="Elle sera visible par tous les travailleurs." action={() => publishJobAction(jobId)} />
       <ConfirmAction
         label="Supprimer"
         icon={<Trash2 />}
         variant="ghost"
-        title="Supprimer ce brouillon ?"
+        title="Supprimer ce brouillon ?"
         destructive
         action={() => deleteDraftAction(jobId)}
         onDone={() => router.push("/client/jobs")}

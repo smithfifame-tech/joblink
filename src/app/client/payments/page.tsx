@@ -47,7 +47,7 @@ export default async function ClientPaymentsPage({ searchParams }: { searchParam
       <PageHeader title="Paiements" description={`Total payé : ${formatXOF(total)}`} />
       {returnedPayment && (
         <Alert className="mb-4" variant={returnedPayment.status === "succeeded" ? "success" : returnedPayment.status === "failed" ? "error" : "info"}>
-          {returnedPayment.status === "succeeded" ? "Paiement confirmé. Merci !" : returnedPayment.status === "failed" ? "Le paiement a échoué. Vous pouvez réessayer." : "Paiement en cours de confirmation par le prestataire. Cette page se mettra à jour."}
+          {returnedPayment.status === "succeeded" ? "Paiement confirmé. Merci !" : returnedPayment.status === "failed" ? "Le paiement a échoué. Vous pouvez réessayer." : "Paiement en cours de confirmation par le prestataire. Cette page se mettra à jour."}
         </Alert>
       )}
       {due.length > 0 && (
@@ -63,7 +63,7 @@ export default async function ClientPaymentsPage({ searchParams }: { searchParam
                     <Link href={`/client/jobs/${c.job_id}`} className="font-medium hover:text-primary">{titles.get(c.job_id)}</Link>
                     <p className="text-xs text-muted-foreground">Validée le {formatDateTime(c.completed_at)}</p>
                   </div>
-                  {enabled && <PayButton contractId={c.id} amount={b.amount} commission={b.commission} providerFee={b.providerFee} net={b.net} methods={getActiveAdapter().methods} />}
+                  {enabled && <PayButton contractId={c.id} amount={b.amount} commission={b.commission} providerFee={b.providerFee} net={b.net} rate={rates.commission} methods={getActiveAdapter().methods} />}
                 </div>
               );
             })}

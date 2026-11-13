@@ -16,7 +16,7 @@ import { AreaMap } from "@/components/maps/area-map";
 import { JobHero } from "@/components/jobs/job-hero";
 import { JobCard } from "@/components/jobs/job-card";
 import { ShareButtons } from "@/components/jobs/share-buttons";
-import { getPublicJob, searchJobs } from "@/services/catalog";
+import { getCommissionRates, getPublicJob, searchJobs } from "@/services/catalog";
 import { categoryPhoto } from "@/lib/media/category-photos";
 import { requireUser } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -59,6 +59,7 @@ export default async function JobDetailPage({ params }: { params: Params }) {
       ? supabase.from("favorites").select("target_id").eq("user_id", user.id).eq("target_type", "job").eq("target_id", job.id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+  const rates = await getCommissionRates();
   const similar = await searchJobs({ category: job.category_slug, sort: "recent" }, 4)
     .then((r) => r.rows.filter((j) => j.id !== job.id).slice(0, 3))
     .catch(() => []);
@@ -207,7 +208,7 @@ export default async function JobDetailPage({ params }: { params: Params }) {
               ) : !user.emailConfirmed ? (
                 <Alert variant="warning">Confirmez votre adresse e-mail pour postuler.</Alert>
               ) : (
-                <ApplyForm jobId={job.id} budget={job.budget_amount} allowPriceProposal={job.allow_price_proposal} />
+                <ApplyForm jobId={job.id} budget={job.budget_amount} allowPriceProposal={job.allow_price_proposal} commissionRate={rates.commission} />
               )}
             </CardContent>
           </Card>

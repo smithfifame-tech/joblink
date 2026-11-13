@@ -121,7 +121,7 @@ export function JobCard({
           </p>
           <p className="mt-auto pt-1 text-sm font-bold tabular-nums text-primary-strong">
             {formatXOF(job.budget_amount)}
-            {job.pay_type !== "fixed" && <span className="text-[11px] font-normal text-muted-foreground"> {PAY_TYPE_LABEL[job.pay_type]}</span>}
+            {job.pay_type !== "fixed" && <span className="ml-1 text-[11px] font-normal text-muted-foreground">{PAY_TYPE_LABEL[job.pay_type]}</span>}
           </p>
         </div>
       </Link>
@@ -197,7 +197,7 @@ export function JobCard({
               </p>
               <p className="truncate text-lg font-extrabold tabular-nums tracking-tight text-primary-strong">
                 {formatXOF(job.budget_amount)}
-                {job.pay_type !== "fixed" && <span className="text-xs font-medium text-muted-foreground"> {PAY_TYPE_LABEL[job.pay_type]}</span>}
+                {job.pay_type !== "fixed" && <span className="ml-1 text-xs font-medium tracking-normal text-muted-foreground">{PAY_TYPE_LABEL[job.pay_type]}</span>}
               </p>
             </div>
             <span

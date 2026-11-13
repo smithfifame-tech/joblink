@@ -5,11 +5,13 @@ import { DataTable } from "@/components/admin/data-table";
 import { requireRole } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatXOF } from "@/lib/utils/format";
+import { getCommissionLabel } from "@/services/catalog";
 
 export const metadata = { title: "Commissions" };
 
 export default async function AdminCommissionsPage() {
   await requireRole("admin");
+  const rateLabel = await getCommissionLabel();
   const supabase = await getSupabaseServerClient();
   const { data } = await supabase.from("payments").select("amount, commission_amount, provider_fee_amount, net_amount, paid_at").eq("status", "succeeded").order("paid_at", { ascending: false }).limit(5000);
   const rows = (data ?? []) as { amount: number; commission_amount: number; provider_fee_amount: number; net_amount: number; paid_at: string }[];
@@ -26,7 +28,7 @@ export default async function AdminCommissionsPage() {
 
   return (
     <>
-      <PageHeader title="Commissions" description="5 % prélevés sur chaque mission payée." />
+      <PageHeader title="Commissions" description={`${rateLabel} prélevés sur chaque mission payée (taux modifiable dans Paramètres).`} />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <StatCard label="Commissions totales" value={formatXOF(total)} icon={Percent} />
         <StatCard label="Volume payé" value={formatXOF(volume)} icon={Percent} />

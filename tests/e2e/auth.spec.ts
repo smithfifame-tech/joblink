@@ -59,7 +59,7 @@ test.describe("connexion et récupération", () => {
     await page.getByRole("button", { name: "Afficher le mot de passe" }).click();
     await expect(pwd).toHaveAttribute("type", "text");
     await expect(page.getByLabel("Se souvenir de moi")).toBeChecked();
-    await expect(page.getByRole("link", { name: "Mot de passe oublié ?" })).toHaveAttribute("href", "/forgot-password");
+    await expect(page.getByRole("link", { name: /Mot de passe oublié/ })).toHaveAttribute("href", "/forgot-password");
   });
 
   test("mot de passe oublié : validation de l'e-mail", async ({ page }) => {

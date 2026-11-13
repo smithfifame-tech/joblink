@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateTime, formatXOF } from "@/lib/utils/format";
+import { getCommissionLabel } from "@/services/catalog";
 import type { Payment } from "@/types/db";
 
 export const metadata = { title: "Revenus" };
@@ -20,6 +21,7 @@ const PAYOUT: Record<Payment["payout_status"], [string, "info" | "warning" | "de
 
 export default async function EarningsPage() {
   const user = await requireRole("worker");
+  const rateLabel = await getCommissionLabel();
   const supabase = await getSupabaseServerClient();
   const { data } = await supabase.from("payments").select("*").eq("payee_id", user.id).in("status", ["succeeded", "refunded"]).order("paid_at", { ascending: false }).limit(200);
   const list = (data ?? []) as Payment[];
@@ -33,7 +35,7 @@ export default async function EarningsPage() {
 
   return (
     <>
-      <PageHeader title="Revenus" description="Montants nets après commission JOBLINK de 5 % et frais de paiement affichés." />
+      <PageHeader title="Revenus" description={`Montants nets après commission JOBLINK de ${rateLabel} et frais de paiement affichés.`} />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Montant brut" value={formatXOF(gross)} icon={Wallet} />
         <StatCard label="Commissions" value={formatXOF(commission)} icon={Wallet} />

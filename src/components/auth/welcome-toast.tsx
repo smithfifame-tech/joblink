@@ -11,7 +11,7 @@ export function WelcomeToast() {
   const router = useRouter();
   useEffect(() => {
     if (sp.get("welcome") !== "1") return;
-    toast.success("Bienvenue sur JOBLINK !", { description: "Votre compte est actif, vous êtes connecté." });
+    toast.success("Bienvenue sur JOBLINK !", { description: "Votre compte est actif, vous êtes connecté." });
     const params = new URLSearchParams(sp.toString());
     params.delete("welcome");
     router.replace(`${pathname}${params.size ? `?${params}` : ""}`, { scroll: false });

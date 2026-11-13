@@ -5,6 +5,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import { getAuthProviders } from "@/lib/auth/providers";
 import { isPaymentConfigured } from "@/lib/payments/registry";
 import { isProduction, serverEnv } from "@/lib/env.server";
+import { getCommissionRates } from "@/services/catalog";
+import { jobAlerts } from "@/lib/owner-panel/review";
 
 const TABS: OwnerTab[] = ["overview", "users", "jobs", "payments", "cases", "moderation", "incidents", "site", "security"];
 const PAYMENT_FILTERS: OwnerPaymentFilter[] = ["", "pending", "payout", "succeeded", "failed", "refunded"];
@@ -38,7 +40,7 @@ export default async function OwnerPanelPage({ searchParams }: { searchParams: S
   const userId = sp.user && UUID.test(sp.user) ? sp.user : null;
   const showAllDisputes = sp.all === "1";
 
-  const [data, users, userDetail, jobs, payments, disputes, verifications, providers, incidents, announcement] = await Promise.all([
+  const [data, users, userDetail, jobs, payments, disputes, verifications, providers, incidents, announcement, settings, openJobs] = await Promise.all([
     ownerApi.overview(),
     tab === "users" ? ownerApi.users(q, USERS_PAGE, (page - 1) * USERS_PAGE) : Promise.resolve(undefined),
     tab === "users" && userId ? ownerApi.userDetail(userId).catch(() => null) : Promise.resolve(null),
@@ -49,7 +51,11 @@ export default async function OwnerPanelPage({ searchParams }: { searchParams: S
     getAuthProviders(),
     ownerApi.incidents().catch(() => null),
     tab === "site" ? ownerApi.announcement().catch(() => null) : Promise.resolve(null),
+    getCommissionRates(),
+    // Missions ouvertes (100 plus récentes) pour repérer celles qui demandent une action
+    tab === "overview" || tab === "jobs" ? ownerApi.jobs("", "open", 100, 0).catch(() => null) : Promise.resolve(null),
   ]);
+  const watch = openJobs ? jobAlerts(openJobs.items) : null;
   const docs = verifications ? await documentLinks(verifications) : {};
 
   // État de mise en service (aucune valeur secrète n'est transmise au navigateur, seulement des statuts)
@@ -83,6 +89,8 @@ export default async function OwnerPanelPage({ searchParams }: { searchParams: S
       showAllDisputes={showAllDisputes}
       verifications={verifications}
       documentLinks={docs}
+      settings={settings}
+      watch={watch}
     />
   );
 }

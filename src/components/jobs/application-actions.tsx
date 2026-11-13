@@ -21,7 +21,7 @@ export function ApplicationActions({ applicationId, workerName, amount }: { appl
         icon={<X />}
         size="sm"
         variant="outline"
-        title="Refuser cette candidature ?"
+        title="Refuser cette candidature ?"
         input={{ label: "Message au candidat (facultatif)", placeholder: "Merci pour votre proposition…" }}
         confirmLabel="Refuser"
         destructive

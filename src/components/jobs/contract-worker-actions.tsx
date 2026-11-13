@@ -19,8 +19,8 @@ export function ContractWorkerActions({ contractId, status, userId }: { contract
     <div className="grid gap-4">
       {status === "pending_acceptance" && (
         <div className="flex flex-wrap gap-2">
-          <ConfirmAction label="Confirmer la mission" icon={<Check />} title="Confirmer et démarrer ?" description="Vous vous engagez à réaliser la mission selon les conditions convenues." action={() => respondContractAction(contractId, true)} />
-          <ConfirmAction label="Décliner" icon={<X />} variant="outline" title="Décliner la mission ?" description="Le client pourra choisir un autre travailleur." destructive action={() => respondContractAction(contractId, false)} />
+          <ConfirmAction label="Confirmer la mission" icon={<Check />} title="Confirmer et démarrer ?" description="Vous vous engagez à réaliser la mission selon les conditions convenues." action={() => respondContractAction(contractId, true)} />
+          <ConfirmAction label="Décliner" icon={<X />} variant="outline" title="Décliner la mission ?" description="Le client pourra choisir un autre travailleur." destructive action={() => respondContractAction(contractId, false)} />
         </div>
       )}
       {status === "in_progress" && <CompletionForm contractId={contractId} userId={userId} />}

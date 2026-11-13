@@ -26,7 +26,7 @@ import { validateFile, safeStorageName } from "@/lib/validations/profile";
 import { addJobImagesAction, createJobAction, removeJobImageAction, updateJobAction } from "@/lib/actions/jobs";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { COUNTRIES, findCity } from "@/lib/maps/places";
-import { computeBreakdown } from "@/lib/payments/commission";
+import { computeBreakdown, DEFAULT_COMMISSION_RATE, formatRate } from "@/lib/payments/commission";
 import { categoryPhoto, TITLE_IDEAS } from "@/lib/media/category-photos";
 import { jobQuality } from "@/lib/jobs/signals";
 import { formatXOF } from "@/lib/utils/format";
@@ -105,6 +105,7 @@ export function JobForm({
   initial,
   existingImages = [],
   canPublishDraft = true,
+  commissionRate = DEFAULT_COMMISSION_RATE,
 }: {
   categories: Category[];
   userId: string;
@@ -112,6 +113,8 @@ export function JobForm({
   initial?: Partial<JobInput>;
   existingImages?: ExistingImage[];
   canPublishDraft?: boolean;
+  /** Taux réellement appliqué (platform_settings), passé par la page serveur. */
+  commissionRate?: number;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<"edit" | "preview">("edit");
@@ -153,11 +156,11 @@ export function JobForm({
   const budgetNumber = Number(String(v.budget ?? "").replace(/\s/g, ""));
   const breakdown = useMemo(() => {
     try {
-      return Number.isInteger(budgetNumber) && budgetNumber > 0 ? computeBreakdown(budgetNumber) : null;
+      return Number.isInteger(budgetNumber) && budgetNumber > 0 ? computeBreakdown(budgetNumber, commissionRate) : null;
     } catch {
       return null;
     }
-  }, [budgetNumber]);
+  }, [budgetNumber, commissionRate]);
   const previews = useMemo(() => files.map((f) => ({ name: f.name, url: URL.createObjectURL(f) })), [files]);
 
   // Image de l'annonce : 1re photo ajoutée, sinon photo existante, sinon illustration de la catégorie.
@@ -253,7 +256,7 @@ export function JobForm({
       }
       await uploadImages(res.data.id);
       const published = intent === "publish" && !jobId;
-      toast.success(intent === "draft" ? "Brouillon enregistré." : jobId ? "Mission mise à jour." : "Mission publiée !");
+      toast.success(intent === "draft" ? "Brouillon enregistré." : jobId ? "Mission mise à jour." : "Mission publiée !");
       router.push(`/client/jobs/${res.data.id}${published ? "?published=1" : ""}`);
       router.refresh();
     }, () => {
@@ -324,7 +327,7 @@ export function JobForm({
               {v.allowPriceProposal && <p className="mt-1 text-xs text-white/75">Propositions de prix acceptées.</p>}
               {breakdown && (
                 <dl className="mt-4 grid gap-1.5 border-t border-dashed border-white/25 pt-4 text-sm">
-                  <div className="flex justify-between"><dt className="text-white/75">Commission JOBLINK (5 %)</dt><dd className="tabular-nums">{formatXOF(breakdown.commission)}</dd></div>
+                  <div className="flex justify-between"><dt className="text-white/75">Commission JOBLINK ({formatRate(commissionRate)})</dt><dd className="tabular-nums">{formatXOF(breakdown.commission)}</dd></div>
                   <div className="flex justify-between font-semibold"><dt>Le travailleur reçoit</dt><dd className="tabular-nums">{formatXOF(breakdown.net)}</dd></div>
                 </dl>
               )}
@@ -493,7 +496,7 @@ export function JobForm({
               )} />
               {breakdown && (
                 <div className="grid gap-1 rounded-xl bg-accent/60 p-3 text-xs text-accent-foreground sm:col-span-2">
-                  <p className="flex justify-between"><span>Commission JOBLINK (5 %)</span><strong className="tabular-nums">{formatXOF(breakdown.commission)}</strong></p>
+                  <p className="flex justify-between"><span>Commission JOBLINK ({formatRate(commissionRate)})</span><strong className="tabular-nums">{formatXOF(breakdown.commission)}</strong></p>
                   <p className="flex justify-between"><span>Le travailleur recevra</span><strong className="tabular-nums">{formatXOF(breakdown.net)}</strong></p>
                   <p className="text-muted-foreground">Avant frais éventuels du prestataire de paiement, affichés au moment du paiement.</p>
                 </div>

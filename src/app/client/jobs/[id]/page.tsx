@@ -149,7 +149,7 @@ export default async function ClientJobPage({ params, searchParams }: { params: 
                             <p className="flex flex-wrap items-center gap-2 text-sm">Paiement <PaymentStatusBadge status="succeeded" /> Reçu {pay.receipt_number} · <Link className="text-primary underline" href={`/client/payments/${pay.id}`}>voir le reçu</Link></p>
                           ) : paymentsOn ? (
                             <div className="flex flex-wrap items-center gap-3">
-                              <PayButton contractId={c.id} amount={b.amount} commission={b.commission} providerFee={b.providerFee} net={b.net} methods={methods} />
+                              <PayButton contractId={c.id} amount={b.amount} commission={b.commission} providerFee={b.providerFee} net={b.net} rate={rates.commission} methods={methods} />
                               {pay && <span className="text-sm text-muted-foreground">Dernière tentative : <PaymentStatusBadge status={pay.status} /></span>}
                             </div>
                           ) : (

@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Download, Eye, EyeOff, Loader2, Save } from "lucide-react";
+import { CircleAlert, Download, Eye, EyeOff, Info, Loader2, Monitor, Save, Smartphone, SpellCheck2, TriangleAlert, Wand2 } from "lucide-react";
 import { setAnnouncementAction } from "@/app/admin/joblink/actions";
 import { AnnouncementView, type AnnouncementTone } from "@/components/layout/announcement-view";
 import type { OwnerAnnouncement, OwnerUser } from "@/lib/owner-panel/server";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { announcementIssues, type AnnouncementIssue } from "@/lib/owner-panel/review";
 import { cn } from "@/lib/utils";
 import { SuspendToggle } from "./owner-actions";
 
@@ -308,7 +309,7 @@ const TONE_CHOICES: { value: AnnouncementTone; label: string; swatch: string }[]
 ];
 const field = "h-11 w-full rounded-xl border bg-white px-3.5 text-sm outline-none transition-shadow focus:border-primary/50 focus:ring-4 focus:ring-primary/10";
 
-export function AnnouncementForm({ initial }: { initial: OwnerAnnouncement }) {
+export function AnnouncementForm({ initial, commissionRate }: { initial: OwnerAnnouncement; commissionRate: number }) {
   const [message, setMessage] = useState(initial.message);
   const [tone, setTone] = useState<AnnouncementTone>(initial.tone);
   const [linkUrl, setLinkUrl] = useState(LINKS.some((l) => l.value === initial.link_url) ? (initial.link_url ?? "") : "");
@@ -324,6 +325,9 @@ export function AnnouncementForm({ initial }: { initial: OwnerAnnouncement }) {
     });
 
   const preview = message.trim();
+  const issues = useMemo(() => announcementIssues(message, commissionRate), [message, commissionRate]);
+  const blocking = issues.some((i) => i.level === "error");
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   return (
     <div className="grid gap-6">
       <p className={cn("flex flex-wrap items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium", initial.visible ? "bg-accent text-primary-strong" : "bg-muted text-muted-foreground")}>
@@ -340,6 +344,8 @@ export function AnnouncementForm({ initial }: { initial: OwnerAnnouncement }) {
           Message
           <textarea
             value={message}
+            spellCheck
+            lang="fr"
             onChange={(e) => setMessage(e.target.value.slice(0, 240))}
             rows={3}
             placeholder="Ex. : Bienvenue sur JOBLINK ! Publiez votre première mission gratuitement."
@@ -385,9 +391,26 @@ export function AnnouncementForm({ initial }: { initial: OwnerAnnouncement }) {
         </label>
       </div>
 
+      {preview && <AnnouncementReview issues={issues} onFix={(fixed) => setMessage(fixed.slice(0, 240))} />}
+
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aperçu</p>
-        <div className="overflow-hidden rounded-2xl border">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aperçu</p>
+          <div className="inline-flex rounded-full border bg-white p-0.5 text-xs font-semibold" role="group" aria-label="Taille de l'aperçu">
+            {([["desktop", "Ordinateur", Monitor], ["mobile", "Téléphone", Smartphone]] as const).map(([value, label, Icon]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={device === value}
+                onClick={() => setDevice(value)}
+                className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors", device === value ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground")}
+              >
+                <Icon className="size-3.5" aria-hidden /> {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={cn("overflow-hidden rounded-2xl border transition-[max-width] duration-300", device === "mobile" ? "mx-auto max-w-[390px] rounded-[1.75rem] border-4 border-foreground/80" : "max-w-full")}>
           {preview ? (
             <AnnouncementView a={{ message: preview, tone, link_url: linkUrl || null, link_label: linkLabel || null }} onClose={() => {}} />
           ) : (
@@ -400,7 +423,10 @@ export function AnnouncementForm({ initial }: { initial: OwnerAnnouncement }) {
         <button
           type="button"
           disabled={pending || !preview}
-          onClick={() => save(true)}
+          onClick={() => {
+            if (blocking && !window.confirm("Le message annonce un taux différent de la commission réellement appliquée. Publier quand même ?")) return;
+            save(true);
+          }}
           className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-white shadow-[0_12px_24px_-10px_rgb(22_163_74/0.9)] transition-transform hover:-translate-y-0.5 disabled:opacity-60"
         >
           {pending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} {initial.visible ? "Mettre à jour l'annonce" : "Publier sur le site"}
@@ -413,5 +439,47 @@ export function AnnouncementForm({ initial }: { initial: OwnerAnnouncement }) {
         <p className="text-xs text-muted-foreground">Dernière modification : {formatDateTime(initial.updated_at)}</p>
       </div>
     </div>
+  );
+}
+
+/* ───────────── Relecture automatique de l'annonce ───────────── */
+
+const ISSUE_STYLE: Record<AnnouncementIssue["level"], { wrap: string; icon: typeof Info }> = {
+  error: { wrap: "bg-red-50 text-red-900 ring-red-200", icon: CircleAlert },
+  warning: { wrap: "bg-amber-50 text-amber-950 ring-amber-200", icon: TriangleAlert },
+  info: { wrap: "bg-sky-50 text-sky-950 ring-sky-200", icon: Info },
+};
+
+function AnnouncementReview({ issues, onFix }: { issues: AnnouncementIssue[]; onFix: (fixed: string) => void }) {
+  return (
+    <section aria-label="Relecture automatique" className="grid gap-2">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <SpellCheck2 className="size-4" aria-hidden /> Relecture automatique
+      </p>
+      {issues.length === 0 ? (
+        <p className="rounded-2xl bg-accent px-4 py-3 text-sm font-medium text-primary-strong">Rien à signaler : le message est prêt à être publié.</p>
+      ) : (
+        <ul className="grid gap-2">
+          {issues.map((issue) => {
+            const st = ISSUE_STYLE[issue.level];
+            return (
+              <li key={issue.id} className={cn("flex flex-wrap items-start gap-3 rounded-2xl px-4 py-3 text-sm ring-1", st.wrap)}>
+                <st.icon className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <p className="min-w-0 flex-[1_1_15rem] leading-relaxed">{issue.text}</p>
+                {issue.fix !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => onFix(issue.fix!)}
+                    className="ml-7 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold sm:ml-0 text-foreground shadow-sm ring-1 ring-black/10 transition-colors hover:bg-white/70"
+                  >
+                    <Wand2 className="size-3.5" aria-hidden /> {issue.fixLabel ?? "Corriger"}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

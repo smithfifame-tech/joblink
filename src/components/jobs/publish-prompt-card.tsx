@@ -24,7 +24,7 @@ export function PublishPromptCard({ variant = "client", className }: { variant?:
           <Icon className="size-5" aria-hidden />
         </span>
         <h3 className={cn("mt-5 text-xl font-extrabold leading-tight tracking-[-0.01em]", client ? "text-white" : "text-foreground")}>
-          {client ? "Votre besoin n'est pas encore dans la liste ?" : "Vous avez un savoir-faire ?"}
+          {client ? "Votre besoin n'est pas encore dans la liste ?" : "Vous avez un savoir-faire ?"}
         </h3>
         <p className={cn("mt-2 text-sm leading-relaxed", client ? "text-white/85" : "text-muted-foreground")}>
           {client

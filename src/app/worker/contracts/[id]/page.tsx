@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getCommissionRates } from "@/services/catalog";
-import { computeBreakdown } from "@/lib/payments/commission";
+import { computeBreakdown, formatRate } from "@/lib/payments/commission";
 import { parsePoint } from "@/lib/maps/parse-point";
 import { formatDate, formatXOF } from "@/lib/utils/format";
 import type { Contract, ContractEvent, Job, Payment } from "@/types/db";
@@ -79,7 +79,7 @@ export default async function WorkerContractPage({ params }: { params: Promise<{
             <CardContent>
               <dl className="grid gap-2 text-sm">
                 <div className="flex justify-between"><dt>Montant convenu</dt><dd className="font-medium tabular-nums">{formatXOF(b.amount)}</dd></div>
-                <div className="flex justify-between text-muted-foreground"><dt>Commission (5 %)</dt><dd className="tabular-nums">− {formatXOF(payment?.commission_amount ?? b.commission)}</dd></div>
+                <div className="flex justify-between text-muted-foreground"><dt>Commission ({formatRate(payment ? Number(payment.commission_rate) : rates.commission)})</dt><dd className="tabular-nums">− {formatXOF(payment?.commission_amount ?? b.commission)}</dd></div>
                 <div className="flex justify-between text-muted-foreground"><dt>Frais de paiement</dt><dd className="tabular-nums">− {formatXOF(payment?.provider_fee_amount ?? b.providerFee)}</dd></div>
                 <div className="flex justify-between border-t pt-2 font-semibold"><dt>Net</dt><dd className="text-primary-strong tabular-nums">{formatXOF(payment?.net_amount ?? b.net)}</dd></div>
               </dl>

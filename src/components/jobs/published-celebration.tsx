@@ -60,7 +60,7 @@ export function PublishedCelebration({ jobId, title, url }: { jobId: string; tit
           <CheckCircle2 className="size-7" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-extrabold tracking-tight text-primary-strong">Votre mission est en ligne !</h2>
+          <h2 className="text-xl font-extrabold tracking-tight text-primary-strong">Votre mission est en ligne !</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Les travailleurs proches de vous peuvent déjà la voir. Partagez-la pour recevoir des candidatures plus vite.
           </p>

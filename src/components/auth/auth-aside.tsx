@@ -5,6 +5,7 @@ import { CheckCircle2, MapPin } from "lucide-react";
 import { PHOTOS } from "@/lib/media/photos";
 import { CATEGORY_PHOTOS } from "@/lib/media/category-photos";
 import { PhotoCarousel, type Slide } from "./photo-carousel";
+import { withRate } from "@/lib/payments/commission";
 
 const VARIANTS: { match: (p: string) => boolean; slides: Slide[]; title: React.ReactNode; points: string[] }[] = [
   {
@@ -15,7 +16,7 @@ const VARIANTS: { match: (p: string) => boolean; slides: Slide[]; title: React.R
       { photo: PHOTOS.builder, position: "object-[60%_30%]" },
     ],
     title: <>Rejoignez la communauté <span className="text-green-300">JOBLINK.</span></>,
-    points: ["Inscription gratuite en 2 minutes", "Clients et travailleurs de votre quartier", "Commission de 5 % uniquement sur les missions payées"],
+    points: ["Inscription gratuite en 2 minutes", "Clients et travailleurs de votre quartier", "Commission de {taux} uniquement sur les missions payées"],
   },
   {
     match: (p) => p.startsWith("/forgot-password") || p.startsWith("/reset-password") || p.startsWith("/check-email"),
@@ -44,7 +45,7 @@ function useVariant() {
   return VARIANTS.find((x) => x.match(pathname))!;
 }
 
-export function AuthAside() {
+export function AuthAside({ rateLabel }: { rateLabel: string }) {
   const v = useVariant();
   return (
     <aside className="relative hidden p-4 lg:block">
@@ -62,7 +63,7 @@ export function AuthAside() {
           <ul className="mt-7 grid gap-3 text-[15px] text-white/90">
             {v.points.map((t) => (
               <li key={t} className="flex items-center gap-2.5">
-                <CheckCircle2 className="size-5 shrink-0 text-green-300" aria-hidden /> {t}
+                <CheckCircle2 className="size-5 shrink-0 text-green-300" aria-hidden /> {withRate(t, rateLabel)}
               </li>
             ))}
           </ul>

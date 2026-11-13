@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/ui/form-field";
 import { applyAction } from "@/lib/actions/applications";
-import { computeBreakdown } from "@/lib/payments/commission";
+import { computeBreakdown, DEFAULT_COMMISSION_RATE, formatRate } from "@/lib/payments/commission";
 import { formatXOF } from "@/lib/utils/format";
 
 const schema = z.object({
@@ -19,7 +19,7 @@ const schema = z.object({
   proposedAmount: z.string().optional(),
 });
 
-export function ApplyForm({ jobId, budget, allowPriceProposal }: { jobId: string; budget: number; allowPriceProposal: boolean }) {
+export function ApplyForm({ jobId, budget, allowPriceProposal, commissionRate = DEFAULT_COMMISSION_RATE }: { jobId: string; budget: number; allowPriceProposal: boolean; commissionRate?: number }) {
   const router = useRouter();
   const { register, handleSubmit, watch, formState, setError } = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -28,7 +28,7 @@ export function ApplyForm({ jobId, budget, allowPriceProposal }: { jobId: string
   const proposed = Number((watch("proposedAmount") ?? "").replace(/\s/g, "")) || budget;
   const breakdown = (() => {
     try {
-      return computeBreakdown(Math.round(proposed));
+      return computeBreakdown(Math.round(proposed), commissionRate);
     } catch {
       return null;
     }
@@ -57,7 +57,7 @@ export function ApplyForm({ jobId, budget, allowPriceProposal }: { jobId: string
       )}
       {breakdown && (
         <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-          Si vous êtes retenu : {formatXOF(breakdown.amount)} − commission 5 % ({formatXOF(breakdown.commission)}) ={" "}
+          Si vous êtes retenu : {formatXOF(breakdown.amount)} − commission {formatRate(commissionRate)} ({formatXOF(breakdown.commission)}) ={" "}
           <strong className="text-foreground">{formatXOF(breakdown.net)}</strong> nets, avant frais éventuels du prestataire de paiement.
         </p>
       )}

@@ -14,7 +14,7 @@ export function ContractClientActions({ contractId, status }: { contractId: stri
             label="Valider le travail"
             icon={<CheckCircle2 />}
             size="sm"
-            title="Valider la réalisation ?"
+            title="Valider la réalisation ?"
             description="En validant, vous confirmez que le travail a été réalisé. Le paiement pourra ensuite être déclenché."
             confirmLabel="Valider"
             action={() => validateCompletionAction(contractId)}

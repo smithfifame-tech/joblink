@@ -46,7 +46,7 @@ export default async function WorkerApplicationsPage() {
                   <ApplicationStatusBadge status={a.status} />
                   {cid && <Button asChild size="sm"><Link href={`/worker/contracts/${cid}`}>Ouvrir la mission</Link></Button>}
                   {a.status === "pending" && (
-                    <ConfirmAction label="Retirer" icon={<Undo2 />} size="sm" variant="ghost" title="Retirer votre candidature ?" description="Vous ne pourrez plus candidater à cette mission." destructive action={() => withdrawApplicationAction(a.id)} />
+                    <ConfirmAction label="Retirer" icon={<Undo2 />} size="sm" variant="ghost" title="Retirer votre candidature ?" description="Vous ne pourrez plus candidater à cette mission." destructive action={() => withdrawApplicationAction(a.id)} />
                   )}
                 </div>
               </div>

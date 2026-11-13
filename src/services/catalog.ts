@@ -1,7 +1,10 @@
 import "server-only";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
+import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseConfigured, publicEnv } from "@/lib/env";
+import { DEFAULT_COMMISSION_RATE, formatRate } from "@/lib/payments/commission";
 import type { Category, JobSearchRow, PublicJob } from "@/types/db";
 import type { JobSearchParams } from "@/lib/validations/jobs";
 
@@ -23,12 +26,44 @@ export async function getPlatformSetting<T>(key: string, fallback: T): Promise<T
   return (data?.value as T) ?? fallback;
 }
 
-export async function getCommissionRates(): Promise<{ commission: number; providerFee: number }> {
-  const [commission, providerFee] = await Promise.all([
-    getPlatformSetting<number>("payments.commission_rate", 0.05),
-    getPlatformSetting<number>("payments.provider_fee_rate", 0),
-  ]);
-  return { commission: Number(commission), providerFee: Number(providerFee) };
+/**
+ * Taux réellement appliqués (platform_settings), source unique pour tous les textes du site :
+ * si le taux change dans les réglages, l'accueil, la FAQ, les CGU et les formulaires suivent.
+ */
+export const PLATFORM_SETTINGS_TAG = "platform-settings";
+
+/**
+ * Lecture sans cookies (réglages publics) et mise en cache 5 min : les pages publiques
+ * restent statiques/ISR. Invalidé immédiatement quand un administrateur modifie un réglage.
+ */
+const readPublicRates = unstable_cache(
+  async (): Promise<Record<string, unknown>> => {
+    if (!isSupabaseConfigured()) return {};
+    const sb = createClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await sb
+      .from("platform_settings")
+      .select("key, value")
+      .in("key", ["payments.commission_rate", "payments.provider_fee_rate"]);
+    if (error) throw error;
+    return Object.fromEntries((data ?? []).map((r: { key: string; value: unknown }) => [r.key, r.value]));
+  },
+  ["platform-rates"],
+  { revalidate: 300, tags: [PLATFORM_SETTINGS_TAG] },
+);
+
+export const getCommissionRates = cache(async (): Promise<{ commission: number; providerFee: number }> => {
+  const values = await readPublicRates().catch(() => ({}) as Record<string, unknown>);
+  const c = Number(values["payments.commission_rate"] ?? DEFAULT_COMMISSION_RATE);
+  const f = Number(values["payments.provider_fee_rate"] ?? 0);
+  return {
+    commission: Number.isFinite(c) && c >= 0 && c <= 0.5 ? c : DEFAULT_COMMISSION_RATE,
+    providerFee: Number.isFinite(f) && f >= 0 && f <= 0.5 ? f : 0,
+  };
+});
+
+/** Taux de commission prêt à afficher (« 5 % »). */
+export async function getCommissionLabel(): Promise<string> {
+  return formatRate((await getCommissionRates()).commission);
 }
 
 /** Recherche de missions ouvertes via la fonction PostGIS search_jobs. */

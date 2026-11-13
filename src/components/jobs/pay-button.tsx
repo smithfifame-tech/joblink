@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CreditCard } from "lucide-react";
 import { toast } from "sonner";
+import { formatRate } from "@/lib/payments/commission";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { startPaymentAction } from "@/lib/actions/payments";
@@ -16,6 +17,7 @@ export function PayButton({
   providerFee,
   net,
   methods,
+  rate,
 }: {
   contractId: string;
   amount: number;
@@ -23,6 +25,8 @@ export function PayButton({
   providerFee: number;
   net: number;
   methods: string[];
+  /** Taux de commission appliqué (affichage). */
+  rate?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,7 +55,7 @@ export function PayButton({
         </DialogHeader>
         <dl className="grid gap-2 text-sm">
           <div className="flex justify-between font-medium"><dt>Vous payez</dt><dd className="tabular-nums">{formatXOF(amount)}</dd></div>
-          <div className="flex justify-between text-muted-foreground"><dt>Commission JOBLINK (5 %)</dt><dd className="tabular-nums">− {formatXOF(commission)}</dd></div>
+          <div className="flex justify-between text-muted-foreground"><dt>Commission JOBLINK{rate !== undefined ? ` (${formatRate(rate)})` : ""}</dt><dd className="tabular-nums">− {formatXOF(commission)}</dd></div>
           <div className="flex justify-between text-muted-foreground"><dt>Frais estimés du prestataire de paiement</dt><dd className="tabular-nums">− {formatXOF(providerFee)}</dd></div>
           <div className="flex justify-between border-t pt-2 font-semibold"><dt>Le travailleur reçoit</dt><dd className="text-primary-strong tabular-nums">{formatXOF(net)}</dd></div>
         </dl>

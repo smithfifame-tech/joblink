@@ -4,22 +4,28 @@ import {
   Activity, AlertTriangle, ArrowUpRight, Banknote, Briefcase, CheckCircle2, CircleDashed, ClipboardList, CreditCard,
   ExternalLink, Gavel, Globe, Inbox, LayoutDashboard, LogOut, Mail, MailCheck, RefreshCw, Rocket, ShieldCheck,
   ShieldAlert, Megaphone, Sparkles, TrendingUp, UserCheck, Users, Wallet, Bot, Siren, Wrench, Zap,
-  ChevronLeft, ChevronRight, MapPin, Phone, X,
+  ChevronLeft, ChevronRight, MapPin, Phone, X, Percent, Settings2, Eye as EyeIcon,
 } from "lucide-react";
 import { PHOTOS } from "@/lib/media/photos";
 import { categoryPhotoByName } from "@/lib/media/category-photos";
 import {
   OWNER_PAGE_SIZES,
   type OwnerAnnouncement, type OwnerDispute, type OwnerIncident, type OwnerIncidents, type OwnerJobs, type OwnerOverview,
-  type OwnerPaymentFilter, type OwnerPayments, type OwnerUser, type OwnerUserDetail, type OwnerVerification,
+  type OwnerJob, type OwnerPaymentFilter, type OwnerPayments, type OwnerUser, type OwnerUserDetail, type OwnerVerification,
 } from "@/lib/owner-panel/server";
+
+/** Réglages publics appliqués (lus côté serveur). */
+export type OwnerSiteSettings = { commission: number; providerFee: number };
 import { ownerLogoutAction } from "@/app/admin/joblink/actions";
 import { LogoMark } from "@/components/layout/logo";
 import { CountUp } from "@/components/motion/count-up";
 import { JobStatusBadge, PaymentStatusBadge } from "@/components/jobs/status-badge";
-import { formatDate, formatDateTime, formatRelative, formatXOF } from "@/lib/utils/format";
+import { formatDate, formatDateTime, formatRelative, formatXOF, readableCase } from "@/lib/utils/format";
+import { publicEnv } from "@/lib/env";
 import { cn } from "@/lib/utils";
 import type { JobStatus, PaymentStatus } from "@/types/db";
+import { formatRate } from "@/lib/payments/commission";
+import type { JobAlert } from "@/lib/owner-panel/review";
 import { BarList, Sparkline, TrendChart } from "./trend-chart";
 import { ContactHandled, IncidentActions, JobVisibilityToggle, ReportActions, SuspendToggle } from "./owner-actions";
 import { AnnouncementForm, ExportCsv, JOB_STATUS_LABELS, LivePanel, UsersExplorer } from "./owner-tools";
@@ -43,7 +49,7 @@ const NAV: { tab: OwnerTab; label: string; icon: typeof LayoutDashboard }[] = [
   { tab: "cases", label: "Litiges & vérifications", icon: Gavel },
   { tab: "moderation", label: "Signalements & messages", icon: ShieldAlert },
   { tab: "incidents", label: "Incidents & IA", icon: Bot },
-  { tab: "site", label: "Annonce du site", icon: Megaphone },
+  { tab: "site", label: "Site & annonce", icon: Megaphone },
   { tab: "security", label: "Sécurité", icon: ShieldCheck },
 ];
 
@@ -405,7 +411,7 @@ function Funnel({ k }: { k: OwnerOverview["kpis"] }) {
   );
 }
 
-function Overview({ data, health, incidents }: { data: OwnerOverview; health: OwnerHealth; incidents: OwnerIncidents | null }) {
+function Overview({ data, health, incidents, watch }: { data: OwnerOverview; health: OwnerHealth; incidents: OwnerIncidents | null; watch: JobAlert<OwnerJob>[] | null }) {
   const k = data.kpis;
   const todo = [
     { label: "Signalements ouverts", value: k.reports_open, icon: AlertTriangle, href: "/admin/joblink?tab=moderation" },
@@ -415,6 +421,7 @@ function Overview({ data, health, incidents }: { data: OwnerOverview; health: Ow
     { label: "Versements à effectuer", value: k.payouts_pending, icon: Banknote, href: "/admin/joblink?tab=payments&filter=payout" },
     { label: "Messages de contact", value: k.contact_new, icon: Mail, href: "/admin/joblink?tab=moderation" },
     { label: "Incidents techniques", value: incidents?.counts.open ?? 0, icon: Siren, href: "/admin/joblink?tab=incidents" },
+    { label: "Missions à surveiller", value: watch?.length ?? 0, icon: Briefcase, href: "/admin/joblink?tab=jobs#a-surveiller" },
   ];
   const roleTotal = Math.max(1, k.clients + k.workers);
   return (
@@ -761,16 +768,65 @@ function UsersTab({ users, q, page, detail, detailMissing }: { users: { total: n
   );
 }
 
-function SiteTab({ announcement }: { announcement: OwnerAnnouncement | null }) {
+function SiteTab({ announcement, settings }: { announcement: OwnerAnnouncement | null; settings: OwnerSiteSettings }) {
+  const example = 10000;
+  const commission = Math.round(example * settings.commission);
+  const fee = Math.round(example * settings.providerFee);
   return (
-    <Card>
-      <CardTitle icon={Megaphone}>Bandeau d&apos;annonce</CardTitle>
-      {announcement ? (
-        <AnnouncementForm initial={announcement} />
-      ) : (
-        <Empty>L&apos;annonce du site est momentanément indisponible. Réessayez dans un instant.</Empty>
-      )}
-    </Card>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <Card>
+        <CardTitle icon={Megaphone}>Bandeau d&apos;annonce</CardTitle>
+        {announcement ? (
+          <AnnouncementForm initial={announcement} commissionRate={settings.commission} />
+        ) : (
+          <Empty>L&apos;annonce du site est momentanément indisponible. Réessayez dans un instant.</Empty>
+        )}
+      </Card>
+      <div className="grid content-start gap-5">
+        <Card delay={80}>
+          <CardTitle icon={Settings2}>Réglages appliqués</CardTitle>
+          <dl className="grid gap-3 text-sm">
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-accent px-4 py-3">
+              <dt className="flex items-center gap-2 font-medium text-primary-strong"><Percent className="size-4" aria-hidden /> Commission JOBLINK</dt>
+              <dd className="text-xl font-extrabold tabular-nums text-primary-strong">{formatRate(settings.commission)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 px-1">
+              <dt className="text-muted-foreground">Frais du prestataire de paiement</dt>
+              <dd className="font-semibold tabular-nums">{settings.providerFee > 0 ? formatRate(settings.providerFee) : "Aucun"}</dd>
+            </div>
+          </dl>
+          <div className="mt-4 rounded-2xl border border-dashed px-4 py-3 text-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Exemple · mission de {formatXOF(example)}</p>
+            <p className="mt-2 flex justify-between gap-3"><span className="text-muted-foreground">Pour JOBLINK</span><strong className="tabular-nums">{formatXOF(commission)}</strong></p>
+            <p className="mt-1 flex justify-between gap-3"><span className="text-muted-foreground">Pour le travailleur</span><strong className="tabular-nums text-primary-strong">{formatXOF(example - commission - fee)}</strong></p>
+          </div>
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            Ce taux est affiché automatiquement partout sur le site (accueil, FAQ, conditions générales, formulaires, reçus).
+            Pour le modifier, connectez-vous avec un compte administrateur.
+          </p>
+          <Link href="/admin/settings" target="_blank" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-strong hover:underline">
+            Ouvrir les paramètres <ExternalLink className="size-3.5" aria-hidden />
+          </Link>
+        </Card>
+        <Card delay={140}>
+          <CardTitle icon={EyeIcon}>Vérifier le site</CardTitle>
+          <ul className="grid gap-1 text-sm">
+            {[
+              ["/", "Page d'accueil"],
+              ["/jobs", "Liste des missions"],
+              ["/faq", "Questions fréquentes"],
+              ["/terms", "Conditions générales"],
+            ].map(([href, label]) => (
+              <li key={href}>
+                <Link href={href} target="_blank" className="group flex items-center justify-between rounded-xl px-2.5 py-2 transition-colors hover:bg-muted/70">
+                  {label} <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+    </div>
   );
 }
 
@@ -786,7 +842,7 @@ const JOB_FILTERS: { key: string; label: string; count?: keyof OwnerJobs["counts
 ];
 const PAY_UNIT: Record<string, string> = { hourly: " / heure", daily: " / jour" };
 
-function JobsTab({ jobs, q, status, page }: { jobs: OwnerJobs | null; q: string; status: string; page: number }) {
+function JobsTab({ jobs, q, status, page, watch }: { jobs: OwnerJobs | null; q: string; status: string; page: number; watch: JobAlert<OwnerJob>[] | null }) {
   if (!jobs) return <Card><Empty>Les missions sont momentanément indisponibles.</Empty></Card>;
   const href = (key: string) => `/admin/joblink?tab=jobs${key ? `&status=${key}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
   return (
@@ -795,6 +851,7 @@ function JobsTab({ jobs, q, status, page }: { jobs: OwnerJobs | null; q: string;
         <TabSearch tab="jobs" placeholder="Titre, catégorie, ville, quartier ou client…" defaultValue={q} keep={{ status }} />
         <Link href="/admin/jobs" className="text-xs font-semibold text-primary-strong hover:underline">Modération détaillée (compte admin)</Link>
       </div>
+      {!q && !status && page === 1 && watch && watch.length > 0 && <WatchList watch={watch} />}
       <Card delay={60}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {JOB_FILTERS.map((f) => (
@@ -817,7 +874,7 @@ function JobsTab({ jobs, q, status, page }: { jobs: OwnerJobs | null; q: string;
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/jobs/${j.id}`} target="_blank" className="truncate font-semibold hover:text-primary-strong">{j.title}</Link>
+                    <Link href={`/jobs/${j.id}`} target="_blank" className="truncate font-semibold hover:text-primary-strong" title={j.title}>{readableCase(j.title)}</Link>
                     <JobStatusBadge status={j.status as JobStatus} />
                     {j.is_hidden && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Masquée</span>}
                   </div>
@@ -844,6 +901,63 @@ function JobsTab({ jobs, q, status, page }: { jobs: OwnerJobs | null; q: string;
   );
 }
 
+const ALERT_TONE: Record<string, string> = {
+  expired: "bg-red-50 text-red-700 ring-red-200",
+  budget: "bg-amber-50 text-amber-800 ring-amber-200",
+  no_applicants: "bg-sky-50 text-sky-800 ring-sky-200",
+  caps_title: "bg-muted text-muted-foreground ring-border",
+};
+
+/** Missions ouvertes qui demandent une action : relancer, corriger ou clôturer. */
+function WatchList({ watch }: { watch: JobAlert<OwnerJob>[] }) {
+  const shown = watch.slice(0, 8);
+  return (
+    <Card delay={40} className="ring-amber-200/70">
+      <div id="a-surveiller" className="scroll-mt-6" />
+      <CardTitle icon={AlertTriangle} action={<span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">{watch.length}</span>}>
+        Missions à surveiller
+      </CardTitle>
+      <p className="-mt-2 mb-4 text-sm text-muted-foreground">
+        Missions ouvertes qui risquent de décevoir : sans candidat, échéance passée ou budget probablement mal saisi.
+        Partagez-les pour trouver un travailleur, ou masquez-les si elles ne sont plus d&apos;actualité.
+      </p>
+      <ul className="grid gap-2.5">
+        {shown.map(({ job: j, issues }) => {
+          const url = `${publicEnv.siteUrl}/jobs/${j.id}`;
+          const share = `https://wa.me/?text=${encodeURIComponent(`Mission à ${j.city} sur JOBLINK : ${readableCase(j.title)} — ${formatXOF(j.budget_amount)}${PAY_UNIT[j.pay_type] ?? ""}. Postulez ici : ${url}`)}`;
+          return (
+            <li key={j.id} className="flex flex-wrap items-center gap-3 rounded-2xl border p-3.5 sm:p-4">
+              <div className="min-w-0 flex-1">
+                <Link href={`/jobs/${j.id}`} target="_blank" className="font-semibold hover:text-primary-strong hover:underline">{readableCase(j.title)}</Link>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {j.category} · {j.city} · {formatXOF(j.budget_amount)}{PAY_UNIT[j.pay_type] ?? ""} · par{" "}
+                  <Link href={`/admin/joblink?tab=users&user=${j.client_id}`} className="font-medium text-foreground hover:underline">{j.client_name}</Link>
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {issues.map((i) => (
+                    <span key={i.kind} className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1", ALERT_TONE[i.kind])}>{i.label}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {issues.some((i) => i.kind === "no_applicants") && (
+                  <a href={share} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#25D366] px-3.5 text-xs font-semibold text-white transition-opacity hover:opacity-90">
+                    <Phone className="size-3.5" aria-hidden /> Partager sur WhatsApp
+                  </a>
+                )}
+                <JobVisibilityToggle jobId={j.id} hidden={j.is_hidden} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {watch.length > shown.length && (
+        <p className="mt-3 text-xs text-muted-foreground">+ {watch.length - shown.length} autre{watch.length - shown.length > 1 ? "s" : ""} mission{watch.length - shown.length > 1 ? "s" : ""} à surveiller (filtre « Ouvertes »).</p>
+      )}
+    </Card>
+  );
+}
+
 const PAYMENT_TABS: { key: OwnerPaymentFilter; label: string; count: keyof OwnerPayments["summary"]; tone?: "warning" }[] = [
   { key: "", label: "Tous", count: "all" },
   { key: "payout", label: "À verser", count: "payout", tone: "warning" },
@@ -853,7 +967,7 @@ const PAYMENT_TABS: { key: OwnerPaymentFilter; label: string; count: keyof Owner
   { key: "refunded", label: "Remboursés", count: "refunded" },
 ];
 
-function PaymentsTab({ payments, filter, page }: { payments: OwnerPayments | null; filter: OwnerPaymentFilter; page: number }) {
+function PaymentsTab({ payments, filter, page, commissionRate }: { payments: OwnerPayments | null; filter: OwnerPaymentFilter; page: number; commissionRate: number }) {
   if (!payments) return <Card><Empty>Les paiements sont momentanément indisponibles.</Empty></Card>;
   const s = payments.summary;
   return (
@@ -872,7 +986,7 @@ function PaymentsTab({ payments, filter, page }: { payments: OwnerPayments | nul
         <Card delay={120} className="p-5 sm:p-5">
           <p className="flex items-center gap-2 text-sm text-muted-foreground"><Sparkles className="size-4 text-primary" /> Commissions JOBLINK</p>
           <p className="mt-2 text-3xl font-extrabold tabular-nums text-primary-strong">{formatXOF(s.commissions)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">5 % des missions payées</p>
+          <p className="mt-1 text-xs text-muted-foreground">{formatRate(commissionRate)} des missions payées</p>
         </Card>
       </div>
 
@@ -1268,6 +1382,8 @@ export function OwnerDashboard(props: {
   showAllDisputes: boolean;
   verifications: OwnerVerification[] | null;
   documentLinks: Record<string, string>;
+  settings: OwnerSiteSettings;
+  watch: JobAlert<OwnerJob>[] | null;
 }) {
   const { tab, data, users, q, page, health, incidents, announcement } = props;
   return (
@@ -1275,9 +1391,9 @@ export function OwnerDashboard(props: {
       {tab === "users" && users ? (
         <UsersTab users={users} q={q} page={page} detail={props.userDetail} detailMissing={props.userRequested && !props.userDetail} />
       ) : tab === "jobs" ? (
-        <JobsTab jobs={props.jobs} q={q} status={props.jobStatus} page={page} />
+        <JobsTab jobs={props.jobs} q={q} status={props.jobStatus} page={page} watch={props.watch} />
       ) : tab === "payments" ? (
-        <PaymentsTab payments={props.payments} filter={props.paymentFilter} page={page} />
+        <PaymentsTab payments={props.payments} filter={props.paymentFilter} page={page} commissionRate={props.settings.commission} />
       ) : tab === "cases" ? (
         <CasesTab disputes={props.disputes} verifications={props.verifications} docs={props.documentLinks} showAll={props.showAllDisputes} />
       ) : tab === "moderation" ? (
@@ -1285,11 +1401,11 @@ export function OwnerDashboard(props: {
       ) : tab === "incidents" ? (
         <IncidentsTab incidents={incidents} />
       ) : tab === "site" ? (
-        <SiteTab announcement={announcement ?? null} />
+        <SiteTab announcement={announcement ?? null} settings={props.settings} />
       ) : tab === "security" ? (
         <SecurityTab data={data} />
       ) : (
-        <Overview data={data} health={health} incidents={incidents} />
+        <Overview data={data} health={health} incidents={incidents} watch={props.watch} />
       )}
     </Shell>
   );

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { withRate } from "@/lib/payments/commission";
+import { getCommissionLabel } from "@/services/catalog";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PhotoBanner } from "@/components/home/photo-banner";
@@ -19,7 +21,7 @@ const WORKER = [
   ["Trouvez des missions proches", "Filtrez par catégorie, budget, ville et distance, ou explorez la carte."],
   ["Candidatez", "Présentez-vous et proposez votre prix si le client l'autorise."],
   ["Réalisez la mission", "Confirmez l'attribution, échangez avec le client puis déclarez le travail terminé avec une preuve."],
-  ["Recevez votre paiement", "Montant convenu moins 5 % de commission et frais externes affichés. Suivez vos revenus."],
+  ["Recevez votre paiement", "Montant convenu moins {taux} de commission et frais externes affichés. Suivez vos revenus."],
 ];
 
 function Steps({ title, steps }: { title: string; steps: string[][] }) {
@@ -41,7 +43,10 @@ function Steps({ title, steps }: { title: string; steps: string[][] }) {
   );
 }
 
-export default function HowItWorksPage() {
+export const revalidate = 300;
+
+export default async function HowItWorksPage() {
+  const rate = await getCommissionLabel();
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
       <PhotoBanner
@@ -53,7 +58,7 @@ export default function HowItWorksPage() {
       />
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
         <Steps title="Vous cherchez un prestataire" steps={CLIENT} />
-        <Steps title="Vous cherchez du travail" steps={WORKER} />
+        <Steps title="Vous cherchez du travail" steps={WORKER.map(([t, d]) => [t, withRate(d, rate)])} />
       </div>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <Button asChild size="lg" className="rounded-full"><Link href="/register?type=client">Publier une mission</Link></Button>

@@ -25,3 +25,15 @@ export function computeBreakdown(amount: number, rate = DEFAULT_COMMISSION_RATE,
   if (net < 0) throw new Error("Montant net négatif");
   return { amount, commission, providerFee, net, rate };
 }
+
+/** Jeton remplacé par le taux réel dans les textes statiques (« {taux} de commission »). */
+export const RATE_TOKEN = "{taux}";
+export function withRate(text: string, rateLabel: string): string {
+  return text.replaceAll(RATE_TOKEN, rateLabel);
+}
+
+/** Taux lisible pour l'affichage : 0.05 → « 5 % » (espace insécable, virgule décimale française). */
+export function formatRate(rate: number = DEFAULT_COMMISSION_RATE): string {
+  const pct = Number.isFinite(rate) ? rate * 100 : DEFAULT_COMMISSION_RATE * 100;
+  return `${pct.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}\u00a0%`;
+}

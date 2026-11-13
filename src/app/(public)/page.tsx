@@ -13,7 +13,7 @@ import { NearbyWorkers } from "@/components/jobs/nearby-workers";
 import { CategoryIcon } from "@/components/layout/category-icon";
 import { CityDatalist } from "@/components/layout/city-datalist";
 import { ConfigNotice } from "@/components/layout/config-notice";
-import { FaqList, FAQ_ITEMS } from "@/components/layout/faq-list";
+import { FaqList, faqItems } from "@/components/layout/faq-list";
 import { LogoMark } from "@/components/layout/logo";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { jsonLd, organizationJsonLd, SEO_TITLE, websiteJsonLd } from "@/lib/seo";
@@ -23,9 +23,9 @@ import { CountUp } from "@/components/motion/count-up";
 import { SectionHeading } from "@/components/home/section-heading";
 import { ShowMore } from "@/components/home/show-more";
 import { TalentMosaic } from "@/components/home/talent-mosaic";
-import { getCategories, getCategoryCounts, getPublicStats, getRecentJobs } from "@/services/catalog";
+import { getCategories, getCategoryCounts, getCommissionRates, getPublicStats, getRecentJobs } from "@/services/catalog";
 import { getFeaturedReviews } from "@/services/reviews";
-import { computeBreakdown } from "@/lib/payments/commission";
+import { computeBreakdown, formatRate, withRate } from "@/lib/payments/commission";
 import { formatXOF } from "@/lib/utils/format";
 import { PHOTOS } from "@/lib/media/photos";
 
@@ -42,14 +42,14 @@ const WORKER_STEPS = [
   { icon: UserRound, title: "Créez votre profil", text: "Métiers, compétences, tarifs et zone de déplacement." },
   { icon: MapPinned, title: "Trouvez des missions", text: "Par quartier, par catégorie ou sur la carte, dans votre rayon." },
   { icon: Briefcase, title: "Réalisez le travail", text: "Suivi clair de la mission, de l'acceptation à la validation." },
-  { icon: Wallet, title: "Soyez payé", text: "Montant convenu moins 5 % de commission, frais externes affichés." },
+  { icon: Wallet, title: "Soyez payé", text: "Montant convenu moins {taux} de commission, frais externes affichés." },
 ];
 
 const TRUST = [
   { icon: Smartphone, label: "MTN MoMo & Moov Money" },
   { icon: Lock, label: "Adresse exacte protégée" },
   { icon: BadgeCheck, label: "Avis liés à des missions réalisées" },
-  { icon: Wallet, label: "5 % seulement, aucun frais caché" },
+  { icon: Wallet, label: "{taux} seulement, aucun frais caché" },
 ];
 
 function AnimatedWords({ text, start = 0, step = 70 }: { text: string; start?: number; step?: number }) {
@@ -71,20 +71,31 @@ function AnimatedWords({ text, start = 0, step = 70 }: { text: string; start?: n
   );
 }
 
+/**
+ * Compteurs « En direct » : affichés seulement quand ils rassurent. Au lancement, « 2 travailleurs inscrits »
+ * dessert la plateforme ; on montre alors les engagements de JOBLINK à la place.
+ */
+const LIVE_STATS_MIN = { workers: 15, open_jobs: 5 };
+function showLiveStats(s: { open_jobs: number; workers: number }) {
+  return s.workers >= LIVE_STATS_MIN.workers && s.open_jobs >= LIVE_STATS_MIN.open_jobs;
+}
+
 export const metadata: Metadata = {
   title: { absolute: SEO_TITLE },
   alternates: { canonical: "/" },
 };
 
 export default async function HomePage() {
-  const [categories, jobs, stats, counts, reviews] = await Promise.all([
+  const [categories, jobs, stats, counts, reviews, rates] = await Promise.all([
     getCategories().catch(() => []),
     getRecentJobs(6).catch(() => []),
     getPublicStats().catch(() => null),
     getCategoryCounts().catch(() => ({}) as Record<string, number>),
     getFeaturedReviews(3).catch(() => []),
+    getCommissionRates(),
   ]);
-  const example = computeBreakdown(10000);
+  const rateLabel = formatRate(rates.commission);
+  const example = computeBreakdown(10000, rates.commission);
 
   return (
     <>
@@ -149,7 +160,16 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {stats && (
+        {stats && !showLiveStats(stats) && (
+          <ul className="jl-rise mx-auto mb-4 mt-12 flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-3xl bg-white/85 px-6 py-3 text-sm font-medium text-foreground/80 shadow-[var(--shadow-soft)] ring-1 ring-border/60 backdrop-blur [animation-delay:1.1s] sm:rounded-full">
+            {["Inscription gratuite", "Travailleurs de votre quartier", `Commission de ${rateLabel} seulement`].map((t) => (
+              <li key={t} className="inline-flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-primary" aria-hidden /> {t}
+              </li>
+            ))}
+          </ul>
+        )}
+        {stats && showLiveStats(stats) && (
           <dl className="jl-rise mx-auto mb-4 mt-12 flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-3xl bg-white/85 px-6 py-3 text-sm font-medium text-foreground/75 shadow-[var(--shadow-soft)] ring-1 ring-border/60 backdrop-blur [animation-delay:1.1s] sm:rounded-full">
             <span className="inline-flex items-center gap-2 font-medium text-primary-strong">
               <span className="relative flex size-2">
@@ -181,7 +201,7 @@ export default async function HomePage() {
               <span className="grid size-8 place-items-center rounded-full bg-accent text-primary">
                 <t.icon className="size-4" aria-hidden />
               </span>
-              {t.label}
+              {withRate(t.label, rateLabel)}
               <span aria-hidden className="ml-7 text-primary/40">✦</span>
             </li>
           ))}
@@ -295,7 +315,7 @@ export default async function HomePage() {
         <div className="mt-12 grid gap-6 lg:grid-cols-2">
           {[
             { title: "Vous avez besoin d'un service", tag: "Clients", steps: CLIENT_STEPS, href: "/register?type=client", cta: "Publier une mission" },
-            { title: "Vous cherchez du travail", tag: "Travailleurs", steps: WORKER_STEPS, href: "/register?type=worker", cta: "Devenir travailleur" },
+            { title: "Vous cherchez du travail", tag: "Travailleurs", steps: WORKER_STEPS.map((st) => ({ ...st, text: withRate(st.text, rateLabel) })), href: "/register?type=worker", cta: "Devenir travailleur" },
           ].map((col, idx) => (
             <div
               key={col.tag}
@@ -363,7 +383,7 @@ export default async function HomePage() {
           </div>
           {[
             { icon: ShieldCheck, title: "Sécurisé", text: "Données privées protégées, adresse précise partagée uniquement avec le travailleur retenu." },
-            { icon: Wallet, title: "Transparent", text: "5 % de commission sur les missions payées. Frais affichés avant toute confirmation." },
+            { icon: Wallet, title: "Transparent", text: `${rateLabel} de commission sur les missions payées. Frais affichés avant toute confirmation.` },
             { icon: Smartphone, title: "Pensé pour le mobile", text: "Léger et rapide, même avec une connexion limitée." },
             { icon: MessageSquare, title: "Messagerie intégrée", text: "Échangez sans partager votre numéro avant d'être prêt." },
           ].map((r, i) => (
@@ -406,7 +426,7 @@ export default async function HomePage() {
               {[
                 "Le client paie après la réalisation et la validation du travail.",
                 "Paiement via MTN Mobile Money, Moov Money ou autre moyen compatible, par un prestataire agréé.",
-                "JOBLINK prélève 5 % de commission. Les frais externes éventuels sont affichés avant confirmation.",
+                `JOBLINK prélève ${rateLabel} de commission. Les frais externes éventuels sont affichés avant confirmation.`,
                 "Chaque paiement génère un reçu et apparaît dans votre historique.",
               ].map((t) => (
                 <li key={t} className="flex gap-3 text-[15px] leading-relaxed">
@@ -429,7 +449,7 @@ export default async function HomePage() {
               </div>
               <dl className="mt-6 grid gap-4 text-sm">
                 <div className="flex justify-between"><dt className="text-muted-foreground">Montant de la mission</dt><dd className="font-semibold tabular-nums">{formatXOF(example.amount)}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">Commission JOBLINK (5 %)</dt><dd className="tabular-nums text-muted-foreground">− {formatXOF(example.commission)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Commission JOBLINK ({rateLabel})</dt><dd className="tabular-nums text-muted-foreground">− {formatXOF(example.commission)}</dd></div>
                 <div className="border-t border-dashed" />
                 <div className="flex items-end justify-between gap-3">
                   <dt className="font-semibold">Montant net pour le travailleur</dt>
@@ -476,7 +496,7 @@ export default async function HomePage() {
           <div aria-hidden className="absolute -bottom-24 -left-10 -z-20 size-72 rounded-full bg-primary/40 blur-3xl" />
           <div className="grid max-w-2xl gap-8">
             <div>
-              <h2 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Prêt à commencer ?</h2>
+              <h2 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Prêt à commencer ?</h2>
               <p className="mt-3 max-w-xl text-lg text-green-100">
                 Inscription gratuite en moins de deux minutes, comme client ou comme travailleur.
               </p>
@@ -497,7 +517,7 @@ export default async function HomePage() {
       <section className="mx-auto max-w-3xl px-4 pb-24 sm:px-6" aria-labelledby="faq-title">
         <SectionHeading id="faq-title" align="center" eyebrow="FAQ" title="Questions fréquentes" />
         <div className="mt-10">
-          <FaqList items={FAQ_ITEMS.slice(0, 4)} />
+          <FaqList items={faqItems(rateLabel).slice(0, 4)} />
         </div>
         <p className="mt-8 text-center text-sm">
           <Link href="/faq" className="inline-flex items-center gap-1.5 font-semibold text-primary-strong hover:underline">

@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { JobForm } from "@/components/jobs/job-form";
 import { requireRole } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getCategories } from "@/services/catalog";
+import { getCategories, getCommissionRates } from "@/services/catalog";
 import type { Job } from "@/types/db";
 import { parsePoint } from "@/lib/maps/parse-point";
 
@@ -13,10 +13,11 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const user = await requireRole("client");
   const supabase = await getSupabaseServerClient();
-  const [{ data: job }, { data: images }, categories] = await Promise.all([
+  const [{ data: job }, { data: images }, categories, rates] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", id).eq("client_id", user.id).maybeSingle<Job>(),
     supabase.from("job_images").select("id, storage_path").eq("job_id", id).order("sort_order"),
     getCategories(),
+    getCommissionRates(),
   ]);
   if (!job) notFound();
   if (!["draft", "published", "reviewing"].includes(job.status)) redirect(`/client/jobs/${id}?locked=1`);
@@ -32,6 +33,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         jobId={job.id}
         existingImages={(images ?? []) as { id: string; storage_path: string }[]}
         canPublishDraft={job.status === "draft"}
+        commissionRate={rates.commission}
         initial={{
           title: job.title,
           categoryId: job.category_id,

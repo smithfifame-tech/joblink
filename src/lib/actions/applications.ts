@@ -41,7 +41,7 @@ export async function respondContractAction(contractId: string, accept: boolean)
   if (!id.safeParse(contractId).success) return { ok: false as const, error: "Mission invalide." };
   return callRpc("respond_to_contract", { p_contract_id: contractId, p_accept: accept }, {
     revalidate: ["/worker"],
-    message: accept ? "Mission confirmée. Bon travail !" : "Mission déclinée.",
+    message: accept ? "Mission confirmée. Bon travail !" : "Mission déclinée.",
   });
 }
 
@@ -83,7 +83,7 @@ export async function submitReviewAction(input: unknown) {
     p_contract_id: parsed.data.contractId,
     p_rating: parsed.data.rating,
     p_comment: parsed.data.comment ?? null,
-  }, { revalidate: ["/client", "/worker"], message: "Merci pour votre avis !" });
+  }, { revalidate: ["/client", "/worker"], message: "Merci pour votre avis !" });
 }
 
 export async function reportAction(input: unknown): Promise<ActionResult> {

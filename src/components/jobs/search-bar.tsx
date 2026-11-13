@@ -25,7 +25,7 @@ export function SearchBar({ className, defaultQuery = "", defaultCity = "" }: { 
       onSubmit={submit}
       className={cn("flex flex-col gap-2 rounded-2xl border border-border/80 bg-white p-2 shadow-[var(--shadow-lift)] ring-1 ring-primary/5 transition-shadow focus-within:ring-4 focus-within:ring-primary/15 sm:flex-row sm:items-center sm:rounded-full sm:pl-3", className)}
     >
-      <label className="flex flex-1 items-center gap-2 px-3">
+      <label className="flex flex-1 items-center gap-2 px-3 sm:flex-[1.35]">
         <Search className="size-[18px] shrink-0 text-primary" aria-hidden />
         <span className="sr-only">Type de travail</span>
         <input

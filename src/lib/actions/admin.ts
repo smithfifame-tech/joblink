@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { serverRpc } from "@/lib/supabase/server-rpc";
 import { getAdapter } from "@/lib/payments/registry";
 import { fail, type ActionResult } from "@/lib/errors";
 import { authed, callRpc, invalid } from "./_helpers";
+import { PLATFORM_SETTINGS_TAG } from "@/services/catalog";
 
 const uuid = z.string().uuid();
 const note = z.string().trim().max(2000).optional();
@@ -98,7 +99,13 @@ export async function adminSetSettingAction(key: string, rawValue: string) {
   } catch {
     return { ok: false as const, error: "Valeur JSON invalide (ex. 0.05 ou \"texte\")." };
   }
-  return callRpc("admin_set_setting", { p_key: key, p_value: value }, { revalidate: ["/admin/settings"], message: "Paramètre enregistré." });
+  const res = await callRpc("admin_set_setting", { p_key: key, p_value: value }, { revalidate: ["/admin/settings"], message: "Paramètre enregistré." });
+  // Le taux affiché partout sur le site (accueil, FAQ, CGU, formulaires) suit immédiatement.
+  if (res.ok) {
+    revalidateTag(PLATFORM_SETTINGS_TAG);
+    revalidatePath("/", "layout");
+  }
+  return res;
 }
 
 /** Versement au travailleur via l'API du prestataire, puis enregistrement en base. */
