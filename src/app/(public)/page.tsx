@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/jobs/search-bar";
 import { JobCard } from "@/components/jobs/job-card";
+import { PublishPromptCard } from "@/components/jobs/publish-prompt-card";
 import { NearbyWorkers } from "@/components/jobs/nearby-workers";
 import { CategoryIcon } from "@/components/layout/category-icon";
 import { CityDatalist } from "@/components/layout/city-datalist";
@@ -139,14 +140,17 @@ export default async function HomePage() {
               <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
             <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
-            <Link href="/register?type=worker" className="font-medium text-muted-foreground transition-colors hover:text-foreground">
+            <Link
+              href="/register?type=worker"
+              className="rounded-full bg-white/80 px-3 py-1 font-semibold text-foreground shadow-sm ring-1 ring-border/70 backdrop-blur transition-colors hover:bg-white hover:text-primary-strong"
+            >
               Je propose mes services
             </Link>
           </div>
         </div>
 
         {stats && (
-          <dl className="jl-rise mx-auto mb-4 mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-4 text-sm text-muted-foreground [animation-delay:1.1s]">
+          <dl className="jl-rise mx-auto mb-4 mt-12 flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-3xl bg-white/85 px-6 py-3 text-sm font-medium text-foreground/75 shadow-[var(--shadow-soft)] ring-1 ring-border/60 backdrop-blur [animation-delay:1.1s] sm:rounded-full">
             <span className="inline-flex items-center gap-2 font-medium text-primary-strong">
               <span className="relative flex size-2">
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
@@ -155,9 +159,9 @@ export default async function HomePage() {
               En direct
             </span>
             {[
-              { label: "missions ouvertes", value: stats.open_jobs },
-              { label: "travailleurs inscrits", value: stats.workers },
-              { label: "missions réalisées", value: stats.completed_jobs },
+              { label: stats.open_jobs > 1 ? "missions ouvertes" : "mission ouverte", value: stats.open_jobs },
+              { label: stats.workers > 1 ? "travailleurs inscrits" : "travailleur inscrit", value: stats.workers },
+              { label: stats.completed_jobs > 1 ? "missions réalisées" : "mission réalisée", value: stats.completed_jobs },
             ].map((s) => (
               <div key={s.label} className="flex items-baseline gap-1.5">
                 <dd className="text-lg font-extrabold tabular-nums text-foreground"><CountUp value={s.value} /></dd>
@@ -212,7 +216,9 @@ export default async function HomePage() {
                 </span>
                 <span>
                   <span className="block text-sm font-semibold leading-tight">{c.name}</span>
-                  <span className="mt-1 block text-xs text-muted-foreground">{n} mission{n > 1 ? "s" : ""}</span>
+                  <span className={n > 0 ? "mt-1 block text-xs font-medium text-primary-strong" : "mt-1 block text-xs text-muted-foreground"}>
+                    {n > 0 ? `${n} mission${n > 1 ? "s" : ""} ouverte${n > 1 ? "s" : ""}` : "Trouver un pro"}
+                  </span>
                 </span>
                 <ArrowUpRight className="absolute right-3 top-3 size-4 text-transparent transition-colors duration-300 group-hover:text-primary" aria-hidden />
               </Link>
@@ -257,6 +263,9 @@ export default async function HomePage() {
                     <JobCard job={job} />
                   </div>
                 ))}
+                {/* Grille peu remplie : on complète par des appels à l'action plutôt que de laisser du vide */}
+                {jobs.length % 3 !== 0 && <PublishPromptCard className={jobs.length % 3 === 2 ? "sm:col-span-2 lg:col-span-1" : ""} />}
+                {jobs.length % 3 === 1 && <PublishPromptCard variant="worker" className="hidden lg:flex" />}
               </div>
             ) : (
               <EmptyState

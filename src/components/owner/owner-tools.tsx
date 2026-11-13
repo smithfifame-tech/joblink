@@ -1,20 +1,16 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Download, Eye, EyeOff, Loader2, Save, Search, X } from "lucide-react";
+import { Download, Eye, EyeOff, Loader2, Save } from "lucide-react";
 import { setAnnouncementAction } from "@/app/admin/joblink/actions";
 import { AnnouncementView, type AnnouncementTone } from "@/components/layout/announcement-view";
 import type { OwnerAnnouncement, OwnerUser } from "@/lib/owner-panel/server";
-import { categoryPhotoByName } from "@/lib/media/category-photos";
-import { JobStatusBadge } from "@/components/jobs/status-badge";
-import { formatDate, formatDateTime, formatRelative, formatXOF } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
-import type { JobStatus } from "@/types/db";
-import { JobVisibilityToggle, SuspendToggle } from "./owner-actions";
+import { SuspendToggle } from "./owner-actions";
 
 /* ───────────── État du site en direct + actualisation automatique ───────────── */
 
@@ -154,117 +150,12 @@ export function ExportCsv({ filename, headers, rows, label = "Exporter (CSV)" }:
   );
 }
 
-/* ───────────── Missions : recherche et filtres ───────────── */
+/* ───────────── Missions : libellés partagés (export CSV) ───────────── */
 
-export type OwnerJobRow = {
-  id: string; title: string; city: string; neighborhood: string; budget_amount: number; status: string;
-  is_hidden: boolean; created_at: string; applications_count: number; category: string;
-};
-
-const STATUS_LABELS: Record<string, string> = {
+export const JOB_STATUS_LABELS: Record<string, string> = {
   draft: "Brouillon", published: "Publiée", reviewing: "Candidatures en cours", assigned: "Attribuée", in_progress: "En cours",
   completed: "Terminée", cancelled: "Annulée", disputed: "En litige",
 };
-
-const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-
-export function JobsExplorer({ jobs }: { jobs: OwnerJobRow[] }) {
-  const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<string>("all");
-
-  const statuses = useMemo(() => Array.from(new Set(jobs.map((j) => j.status))), [jobs]);
-  const hiddenCount = useMemo(() => jobs.filter((j) => j.is_hidden).length, [jobs]);
-  const shown = useMemo(() => {
-    const needle = norm(q.trim());
-    return jobs.filter((j) => {
-      if (filter === "hidden" ? !j.is_hidden : filter !== "all" && j.status !== filter) return false;
-      return !needle || norm(`${j.title} ${j.category} ${j.city} ${j.neighborhood}`).includes(needle);
-    });
-  }, [jobs, q, filter]);
-
-  const total = shown.reduce((s, j) => s + j.budget_amount, 0);
-  const chips = [
-    { key: "all", label: "Toutes", count: jobs.length },
-    ...statuses.map((s) => ({ key: s, label: STATUS_LABELS[s] ?? s, count: jobs.filter((j) => j.status === s).length })),
-    ...(hiddenCount ? [{ key: "hidden", label: "Masquées", count: hiddenCount }] : []),
-  ];
-
-  return (
-    <div className="grid gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="relative min-w-[220px] flex-1">
-          <span className="sr-only">Rechercher une mission</span>
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Titre, catégorie, ville ou quartier…"
-            className="h-10 w-full rounded-full border bg-white pl-10 pr-9 text-sm outline-none transition-shadow focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
-          />
-          {q && (
-            <button type="button" aria-label="Effacer la recherche" onClick={() => setQ("")} className="absolute right-2.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-muted">
-              <X className="size-3.5" />
-            </button>
-          )}
-        </label>
-        <ExportCsv
-          filename="joblink-missions"
-          headers={["Titre", "Catégorie", "Ville", "Quartier", "Budget (FCFA)", "Statut", "Masquée", "Candidatures", "Publiée le"]}
-          rows={shown.map((j) => [j.title, j.category, j.city, j.neighborhood, j.budget_amount, STATUS_LABELS[j.status] ?? j.status, j.is_hidden ? "Oui" : "Non", j.applications_count, j.created_at.slice(0, 10)])}
-        />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {chips.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            aria-pressed={filter === c.key}
-            onClick={() => setFilter(c.key)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-              filter === c.key ? "border-primary bg-primary text-white" : "border-border bg-white text-muted-foreground hover:border-primary/40 hover:text-foreground",
-            )}
-          >
-            {c.label}
-            <span className={cn("rounded-full px-1.5 text-[10px]", filter === c.key ? "bg-white/20" : "bg-muted")}>{c.count}</span>
-          </button>
-        ))}
-        <p className="ml-auto self-center text-xs text-muted-foreground">
-          {shown.length} mission{shown.length > 1 ? "s" : ""} · budgets cumulés <strong className="text-foreground">{formatXOF(total)}</strong>
-        </p>
-      </div>
-
-      {shown.length ? (
-        <ul className="grid gap-3">
-          {shown.map((j) => (
-            <li
-              key={j.id}
-              className={cn("flex flex-wrap items-center gap-4 rounded-2xl border p-4 transition-all duration-300 hover:border-primary/30 hover:shadow-[var(--shadow-soft)]", j.is_hidden && "bg-muted/50 opacity-80")}
-            >
-              <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
-                <Image src={categoryPhotoByName(j.category).src} alt="" fill sizes="56px" className="object-cover" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/jobs/${j.id}`} target="_blank" className="truncate font-semibold hover:text-primary-strong">{j.title}</Link>
-                  <JobStatusBadge status={j.status as JobStatus} />
-                  {j.is_hidden && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Masquée</span>}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {j.category} · {j.neighborhood}, {j.city} · {j.applications_count} candidature{j.applications_count > 1 ? "s" : ""} · {formatRelative(j.created_at)}
-                </p>
-              </div>
-              <p className="font-bold tabular-nums text-primary-strong">{formatXOF(j.budget_amount)}</p>
-              <JobVisibilityToggle jobId={j.id} hidden={j.is_hidden} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">Aucune mission ne correspond à ces critères.</p>
-      )}
-    </div>
-  );
-}
 
 /* ───────────── Utilisateurs : filtres, tri et export ───────────── */
 
@@ -272,7 +163,7 @@ const ROLE_LABELS: Record<string, string> = { client: "Client", worker: "Travail
 type UserFilter = "all" | "client" | "worker" | "suspended" | "inactive";
 type UserSort = "recent" | "active" | "name";
 
-export function UsersExplorer({ users }: { users: OwnerUser[] }) {
+export function UsersExplorer({ users, detailQuery = "" }: { users: OwnerUser[]; detailQuery?: string }) {
   const [filter, setFilter] = useState<UserFilter>("all");
   const [sort, setSort] = useState<UserSort>("recent");
 
@@ -356,7 +247,9 @@ export function UsersExplorer({ users }: { users: OwnerUser[] }) {
                         {u.first_name.charAt(0)}{u.last_name.charAt(0)}
                       </span>
                       <div className="min-w-0">
-                        <p className="font-semibold">{u.first_name} {u.last_name}</p>
+                        <Link href={`/admin/joblink?tab=users${detailQuery}&user=${u.id}`} scroll={false} className="font-semibold hover:text-primary-strong hover:underline">
+                          {u.first_name} {u.last_name}
+                        </Link>
                         <p className="text-xs text-muted-foreground">{u.email}{u.phone ? ` · ${u.phone}` : ""}</p>
                         {u.is_suspended && <p className="mt-1 text-xs font-medium text-red-600">Suspendu{u.suspended_reason ? ` — ${u.suspended_reason}` : ""}</p>}
                       </div>

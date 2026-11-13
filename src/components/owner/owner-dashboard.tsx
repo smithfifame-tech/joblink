@@ -4,10 +4,15 @@ import {
   Activity, AlertTriangle, ArrowUpRight, Banknote, Briefcase, CheckCircle2, CircleDashed, ClipboardList, CreditCard,
   ExternalLink, Gavel, Globe, Inbox, LayoutDashboard, LogOut, Mail, MailCheck, RefreshCw, Rocket, ShieldCheck,
   ShieldAlert, Megaphone, Sparkles, TrendingUp, UserCheck, Users, Wallet, Bot, Siren, Wrench, Zap,
+  ChevronLeft, ChevronRight, MapPin, Phone, X,
 } from "lucide-react";
 import { PHOTOS } from "@/lib/media/photos";
 import { categoryPhotoByName } from "@/lib/media/category-photos";
-import type { OwnerAnnouncement, OwnerIncident, OwnerIncidents, OwnerOverview, OwnerUser } from "@/lib/owner-panel/server";
+import {
+  OWNER_PAGE_SIZES,
+  type OwnerAnnouncement, type OwnerDispute, type OwnerIncident, type OwnerIncidents, type OwnerJobs, type OwnerOverview,
+  type OwnerPaymentFilter, type OwnerPayments, type OwnerUser, type OwnerUserDetail, type OwnerVerification,
+} from "@/lib/owner-panel/server";
 import { ownerLogoutAction } from "@/app/admin/joblink/actions";
 import { LogoMark } from "@/components/layout/logo";
 import { CountUp } from "@/components/motion/count-up";
@@ -16,10 +21,11 @@ import { formatDate, formatDateTime, formatRelative, formatXOF } from "@/lib/uti
 import { cn } from "@/lib/utils";
 import type { JobStatus, PaymentStatus } from "@/types/db";
 import { BarList, Sparkline, TrendChart } from "./trend-chart";
-import { ContactHandled, IncidentActions, ReportActions, UserSearch } from "./owner-actions";
-import { AnnouncementForm, ExportCsv, JobsExplorer, LivePanel, UsersExplorer } from "./owner-tools";
+import { ContactHandled, IncidentActions, JobVisibilityToggle, ReportActions, SuspendToggle } from "./owner-actions";
+import { AnnouncementForm, ExportCsv, JOB_STATUS_LABELS, LivePanel, UsersExplorer } from "./owner-tools";
+import { DisputeDecision, PayoutForm, TabSearch, VerificationDecision } from "./owner-operations";
 
-export type OwnerTab = "overview" | "users" | "jobs" | "moderation" | "incidents" | "site" | "security";
+export type OwnerTab = "overview" | "users" | "jobs" | "payments" | "cases" | "moderation" | "incidents" | "site" | "security";
 
 /** Statuts de mise en service (calculés côté serveur, sans aucune valeur secrète). */
 export type OwnerHealth = {
@@ -33,6 +39,8 @@ const NAV: { tab: OwnerTab; label: string; icon: typeof LayoutDashboard }[] = [
   { tab: "overview", label: "Vue d'ensemble", icon: LayoutDashboard },
   { tab: "users", label: "Utilisateurs", icon: Users },
   { tab: "jobs", label: "Missions", icon: Briefcase },
+  { tab: "payments", label: "Paiements", icon: Wallet },
+  { tab: "cases", label: "Litiges & vérifications", icon: Gavel },
   { tab: "moderation", label: "Signalements & messages", icon: ShieldAlert },
   { tab: "incidents", label: "Incidents & IA", icon: Bot },
   { tab: "site", label: "Annonce du site", icon: Megaphone },
@@ -100,6 +108,8 @@ function todoCount(k: OwnerOverview["kpis"]) {
 function Shell({ tab, data, incidents, children }: { tab: OwnerTab; data: OwnerOverview; incidents: OwnerIncidents | null; children: React.ReactNode }) {
   const badge: Partial<Record<OwnerTab, number>> = {
     moderation: data.kpis.reports_open + data.kpis.contact_new,
+    payments: data.kpis.payouts_pending,
+    cases: data.kpis.disputes_open + data.kpis.verifications_pending,
     incidents: incidents ? incidents.counts.open + incidents.counts.critical : 0,
   };
   const now = new Date();
@@ -114,7 +124,7 @@ function Shell({ tab, data, incidents, children }: { tab: OwnerTab; data: OwnerO
     <div className="min-h-dvh bg-[#f5f7f6]">
       <div className="mx-auto flex max-w-[1500px] gap-5 p-3 sm:p-5">
         {/* Barre latérale */}
-        <aside className="sticky top-5 hidden h-[calc(100dvh-2.5rem)] w-72 shrink-0 flex-col rounded-[1.75rem] bg-primary-strong p-5 text-white shadow-[var(--shadow-lift)] lg:flex">
+        <aside className="sticky top-5 hidden h-[calc(100dvh-2.5rem)] w-72 shrink-0 flex-col overflow-y-auto rounded-[1.75rem] bg-primary-strong p-5 text-white shadow-[var(--shadow-lift)] [scrollbar-width:thin] lg:flex">
           <div className="flex items-center gap-2.5">
             <span className="grid size-11 place-items-center rounded-2xl bg-white shadow-lg">
               <LogoMark className="size-8" />
@@ -126,7 +136,7 @@ function Shell({ tab, data, incidents, children }: { tab: OwnerTab; data: OwnerO
               <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/50">Centre de contrôle</p>
             </div>
           </div>
-          <nav aria-label="Tableau de bord" className="mt-9 grid gap-1">
+          <nav aria-label="Tableau de bord" className="mt-7 grid gap-0.5">
             {NAV.map((n, i) => {
               const active = n.tab === tab;
               return (
@@ -134,7 +144,7 @@ function Shell({ tab, data, incidents, children }: { tab: OwnerTab; data: OwnerO
                   key={n.tab}
                   href={n.tab === "overview" ? "/admin/joblink" : `/admin/joblink?tab=${n.tab}`}
                   className={cn(
-                    "jl-rise group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-medium transition-all duration-300",
+                    "jl-rise group flex items-center gap-3 rounded-2xl px-3.5 py-2 text-sm font-medium transition-all duration-300",
                     active ? "bg-white text-primary-strong shadow-lg" : "text-white/70 hover:bg-white/10 hover:text-white",
                   )}
                   style={{ animationDelay: `${80 + i * 50}ms` }}
@@ -152,7 +162,7 @@ function Shell({ tab, data, incidents, children }: { tab: OwnerTab; data: OwnerO
             })}
           </nav>
 
-          <div className="mt-auto grid gap-3">
+          <div className="mt-auto grid gap-3 pt-5">
             <LivePanel variant="sidebar" />
             <div className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
               <p className="flex items-center gap-2 text-xs font-semibold text-green-200">
@@ -399,10 +409,10 @@ function Overview({ data, health, incidents }: { data: OwnerOverview; health: Ow
   const k = data.kpis;
   const todo = [
     { label: "Signalements ouverts", value: k.reports_open, icon: AlertTriangle, href: "/admin/joblink?tab=moderation" },
-    { label: "Litiges en cours", value: k.disputes_open, icon: Gavel, href: "/admin/disputes" },
-    { label: "Vérifications d'identité", value: k.verifications_pending, icon: UserCheck, href: "/admin/workers" },
-    { label: "Paiements en attente", value: k.payments_pending, icon: Wallet, href: "/admin/transactions" },
-    { label: "Versements à effectuer", value: k.payouts_pending, icon: Banknote, href: "/admin/transactions" },
+    { label: "Litiges en cours", value: k.disputes_open, icon: Gavel, href: "/admin/joblink?tab=cases" },
+    { label: "Vérifications d'identité", value: k.verifications_pending, icon: UserCheck, href: "/admin/joblink?tab=cases" },
+    { label: "Paiements en attente", value: k.payments_pending, icon: Wallet, href: "/admin/joblink?tab=payments&filter=pending" },
+    { label: "Versements à effectuer", value: k.payouts_pending, icon: Banknote, href: "/admin/joblink?tab=payments&filter=payout" },
     { label: "Messages de contact", value: k.contact_new, icon: Mail, href: "/admin/joblink?tab=moderation" },
     { label: "Incidents techniques", value: incidents?.counts.open ?? 0, icon: Siren, href: "/admin/joblink?tab=incidents" },
   ];
@@ -509,7 +519,7 @@ function Overview({ data, health, incidents }: { data: OwnerOverview; health: Ow
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">
-                      {u.first_name} {u.last_name}
+                      <Link href={`/admin/joblink?tab=users&user=${u.id}`} className="hover:text-primary-strong hover:underline">{u.first_name} {u.last_name}</Link>
                       {u.is_suspended && <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">Suspendu</span>}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">{u.email} · {u.roles.map((r) => ROLES[r] ?? r).join(", ") || "—"}</p>
@@ -559,17 +569,193 @@ function Overview({ data, health, incidents }: { data: OwnerOverview; health: Ow
   );
 }
 
-function UsersTab({ users, q }: { users: { total: number; items: OwnerUser[] }; q: string }) {
+/** Pagination par liens (conserve les filtres de l'onglet). */
+function Pager({ tab, page, total, size, params }: { tab: OwnerTab; page: number; total: number; size: number; params?: Record<string, string | undefined> }) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  if (pages <= 1) return null;
+  const href = (p: number) => {
+    const sp = new URLSearchParams({ tab });
+    for (const [k, v] of Object.entries(params ?? {})) if (v) sp.set(k, v);
+    if (p > 1) sp.set("page", String(p));
+    return `/admin/joblink?${sp.toString()}`;
+  };
+  const link = "inline-flex h-9 items-center gap-1 rounded-full border bg-white px-3.5 text-xs font-semibold shadow-sm transition-colors hover:border-primary/40 hover:text-primary-strong";
+  return (
+    <nav aria-label="Pagination" className="flex items-center justify-between gap-3 pt-2">
+      {page > 1 ? <Link href={href(page - 1)} className={link}><ChevronLeft className="size-3.5" /> Précédent</Link> : <span />}
+      <span className="text-xs text-muted-foreground">Page {page} sur {pages} · {total.toLocaleString("fr-FR")} au total</span>
+      {page < pages ? <Link href={href(page + 1)} className={link}>Suivant <ChevronRight className="size-3.5" /></Link> : <span />}
+    </nav>
+  );
+}
+
+function Chip({ href, active, label, count, tone }: { href: string; active: boolean; label: string; count?: number; tone?: "warning" }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+        active ? "border-primary bg-primary text-white" : "border-border bg-white text-muted-foreground hover:border-primary/40 hover:text-foreground",
+      )}
+    >
+      {label}
+      {count !== undefined && (
+        <span className={cn("rounded-full px-1.5 text-[10px]", active ? "bg-white/20" : tone === "warning" && count > 0 ? "bg-amber-100 text-amber-800" : "bg-muted")}>
+          {count.toLocaleString("fr-FR")}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+const PAYOUT_LABELS: Record<string, { label: string; cls: string }> = {
+  not_started: { label: "À verser", cls: "bg-amber-100 text-amber-800" },
+  pending: { label: "À verser", cls: "bg-amber-100 text-amber-800" },
+  completed: { label: "Versé", cls: "bg-accent text-primary-strong" },
+  failed: { label: "Versement échoué", cls: "bg-red-50 text-red-700" },
+};
+const APPLICATION_LABELS: Record<string, string> = { pending: "En attente", accepted: "Acceptée", rejected: "Refusée", withdrawn: "Retirée" };
+const AVAILABILITY: Record<string, string> = { available: "Disponible", busy: "Occupé", unavailable: "Indisponible" };
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-muted/50 p-3">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-extrabold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function UserDetailCard({ detail, closeHref }: { detail: OwnerUserDetail; closeHref: string }) {
+  const p = detail.profile;
+  const isAdmin = detail.roles.includes("admin");
+  return (
+    <Card className="border-primary/25">
+      <div className="flex flex-wrap items-start gap-4">
+        <span className={cn("grid size-14 shrink-0 place-items-center rounded-2xl text-lg font-extrabold", p.is_suspended ? "bg-red-50 text-red-700" : "bg-gradient-to-br from-accent to-green-100 text-primary-strong")}>
+          {p.first_name.charAt(0)}{p.last_name.charAt(0)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="flex flex-wrap items-center gap-2 text-xl font-extrabold tracking-tight">
+            {p.first_name} {p.last_name}
+            {detail.roles.map((r) => (
+              <span key={r} className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", r === "admin" ? "bg-primary-strong text-white" : "bg-accent text-primary-strong")}>{ROLES[r] ?? r}</span>
+            ))}
+            {detail.worker?.is_verified && <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-white"><ShieldCheck className="size-3" /> Vérifié</span>}
+            {p.is_suspended && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">Suspendu</span>}
+          </h2>
+          <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <a href={`mailto:${p.email}`} className="inline-flex items-center gap-1 hover:text-primary-strong"><Mail className="size-3.5" /> {p.email}</a>
+            {p.phone && <a href={`tel:${p.phone}`} className="inline-flex items-center gap-1 hover:text-primary-strong"><Phone className="size-3.5" /> {p.phone}</a>}
+            {(p.city || p.neighborhood) && <span className="inline-flex items-center gap-1"><MapPin className="size-3.5" /> {[p.neighborhood, p.city].filter(Boolean).join(", ")}</span>}
+            <span>Inscrit le {formatDate(p.created_at)}</span>
+          </p>
+          {p.is_suspended && p.suspended_reason && <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">Motif de suspension : {p.suspended_reason}</p>}
+          {detail.worker?.headline && <p className="mt-2 text-sm">{detail.worker.headline}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          {!isAdmin && <SuspendToggle userId={p.id} suspended={p.is_suspended} name={p.first_name} />}
+          <Link href={closeHref} scroll={false} aria-label="Fermer la fiche" className="grid size-8 place-items-center rounded-full border bg-white text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Missions publiées" value={String(detail.stats.jobs)} />
+        <Stat label="Candidatures" value={String(detail.stats.applications)} />
+        <Stat label="Contrats" value={String(detail.stats.contracts)} />
+        <Stat label="A payé" value={formatXOF(detail.stats.paid)} />
+        <Stat label="A gagné (net)" value={formatXOF(detail.stats.earned)} />
+        <Stat label="Signalements reçus" value={String(detail.stats.reports_against)} />
+      </div>
+      {detail.worker && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Travailleur · {AVAILABILITY[detail.worker.availability] ?? detail.worker.availability}
+          {detail.worker.experience_years != null && ` · ${detail.worker.experience_years} an${detail.worker.experience_years > 1 ? "s" : ""} d'expérience`}
+          {` · ${detail.worker.completed_jobs_count} mission${detail.worker.completed_jobs_count > 1 ? "s" : ""} réalisée${detail.worker.completed_jobs_count > 1 ? "s" : ""}`}
+          {detail.worker.rating_count > 0 && ` · note ${Number(detail.worker.rating_avg).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}/5 (${detail.worker.rating_count} avis)`}
+        </p>
+      )}
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-3">
+        <div>
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Missions publiées</h3>
+          {detail.jobs.length ? (
+            <ul className="grid gap-1.5">
+              {detail.jobs.map((j) => (
+                <li key={j.id} className="flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm">
+                  <Link href={`/jobs/${j.id}`} target="_blank" className="min-w-0 truncate font-medium hover:text-primary-strong">{j.title}</Link>
+                  <JobStatusBadge status={j.status as JobStatus} />
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-sm text-muted-foreground">Aucune.</p>}
+        </div>
+        <div>
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Candidatures</h3>
+          {detail.applications.length ? (
+            <ul className="grid gap-1.5">
+              {detail.applications.map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm">
+                  <Link href={`/jobs/${a.job_id}`} target="_blank" className="min-w-0 truncate font-medium hover:text-primary-strong">{a.job_title}</Link>
+                  <span className="shrink-0 text-xs text-muted-foreground">{APPLICATION_LABELS[a.status] ?? a.status}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-sm text-muted-foreground">Aucune.</p>}
+        </div>
+        <div>
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Paiements</h3>
+          {detail.payments.length ? (
+            <ul className="grid gap-1.5">
+              {detail.payments.map((py) => (
+                <li key={py.id} className="flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm">
+                  <span className="tabular-nums">
+                    {py.side === "payer" ? "Payé " : "Reçu "}
+                    <strong>{formatXOF(py.side === "payer" ? py.amount : py.net_amount)}</strong>
+                  </span>
+                  <PaymentStatusBadge status={py.status as PaymentStatus} />
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-sm text-muted-foreground">Aucun.</p>}
+        </div>
+      </div>
+      {detail.history.length > 0 && (
+        <details className="mt-5 text-sm">
+          <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">Historique (journal d&apos;audit)</summary>
+          <ul className="mt-2 divide-y rounded-xl border">
+            {detail.history.map((h, i) => (
+              <li key={`${h.created_at}-${i}`} className="flex justify-between gap-3 px-3 py-2 text-xs">
+                <span className="font-mono">{h.action}</span>
+                <span className="shrink-0 text-muted-foreground">{formatDateTime(h.created_at)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </Card>
+  );
+}
+
+function UsersTab({ users, q, page, detail, detailMissing }: { users: { total: number; items: OwnerUser[] }; q: string; page: number; detail: OwnerUserDetail | null; detailMissing: boolean }) {
+  const keep = `${q ? `&q=${encodeURIComponent(q)}` : ""}${page > 1 ? `&page=${page}` : ""}`;
   return (
     <div className="grid gap-5">
       <div className="jl-rise flex flex-wrap items-center justify-between gap-3">
-        <UserSearch />
+        <TabSearch tab="users" placeholder="Nom, e-mail, téléphone, ville…" defaultValue={q} />
         <p className="text-sm text-muted-foreground">
           {users.total.toLocaleString("fr-FR")} utilisateur{users.total > 1 ? "s" : ""}{q ? ` pour « ${q} »` : ""}
         </p>
       </div>
+      {detail && <UserDetailCard detail={detail} closeHref={`/admin/joblink?tab=users${keep}`} />}
+      {detailMissing && <Card><Empty>Ce compte est introuvable (supprimé ou identifiant erroné).</Empty></Card>}
       <Card delay={80}>
-        <UsersExplorer users={users.items} />
+        <p className="-mt-1 mb-4 text-xs text-muted-foreground">Cliquez sur un nom pour ouvrir sa fiche complète. Filtres et tri s&apos;appliquent à la page affichée.</p>
+        <UsersExplorer users={users.items} detailQuery={keep} />
+        <Pager tab="users" page={page} total={users.total} size={OWNER_PAGE_SIZES.users} params={{ q }} />
       </Card>
     </div>
   );
@@ -588,18 +774,269 @@ function SiteTab({ announcement }: { announcement: OwnerAnnouncement | null }) {
   );
 }
 
-function JobsTab({ data }: { data: OwnerOverview }) {
+const JOB_FILTERS: { key: string; label: string; count?: keyof OwnerJobs["counts"]; tone?: "warning" }[] = [
+  { key: "", label: "Toutes" },
+  { key: "open", label: "Ouvertes", count: "open" },
+  { key: "active", label: "En cours", count: "active" },
+  { key: "completed", label: "Terminées", count: "completed" },
+  { key: "disputed", label: "En litige", count: "disputed", tone: "warning" },
+  { key: "cancelled", label: "Annulées" },
+  { key: "draft", label: "Brouillons" },
+  { key: "hidden", label: "Masquées", count: "hidden" },
+];
+const PAY_UNIT: Record<string, string> = { hourly: " / heure", daily: " / jour" };
+
+function JobsTab({ jobs, q, status, page }: { jobs: OwnerJobs | null; q: string; status: string; page: number }) {
+  if (!jobs) return <Card><Empty>Les missions sont momentanément indisponibles.</Empty></Card>;
+  const href = (key: string) => `/admin/joblink?tab=jobs${key ? `&status=${key}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
   return (
-    <Card>
-      <CardTitle icon={Briefcase} action={<Link href="/admin/jobs" className="text-xs font-semibold text-primary-strong hover:underline">Modération détaillée</Link>}>
-        Missions récentes
-      </CardTitle>
-      {data.recent_jobs.length ? (
-        <JobsExplorer jobs={data.recent_jobs} />
-      ) : (
-        <Empty>Aucune mission publiée pour le moment.</Empty>
-      )}
-    </Card>
+    <div className="grid gap-5">
+      <div className="jl-rise flex flex-wrap items-center justify-between gap-3">
+        <TabSearch tab="jobs" placeholder="Titre, catégorie, ville, quartier ou client…" defaultValue={q} keep={{ status }} />
+        <Link href="/admin/jobs" className="text-xs font-semibold text-primary-strong hover:underline">Modération détaillée (compte admin)</Link>
+      </div>
+      <Card delay={60}>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {JOB_FILTERS.map((f) => (
+            <Chip key={f.key} href={href(f.key)} active={status === f.key} label={f.label} count={f.count ? jobs.counts[f.count] : undefined} tone={f.tone} />
+          ))}
+          <div className="ml-auto">
+            <ExportCsv
+              filename="joblink-missions"
+              headers={["Titre", "Catégorie", "Client", "Ville", "Quartier", "Budget (FCFA)", "Statut", "Masquée", "Candidatures", "Publiée le"]}
+              rows={jobs.items.map((j) => [j.title, j.category, j.client_name, j.city, j.neighborhood, j.budget_amount, JOB_STATUS_LABELS[j.status] ?? j.status, j.is_hidden ? "Oui" : "Non", j.applications_count, j.created_at.slice(0, 10)])}
+            />
+          </div>
+        </div>
+        {jobs.items.length ? (
+          <ul className="grid gap-3">
+            {jobs.items.map((j) => (
+              <li key={j.id} className={cn("flex flex-wrap items-center gap-4 rounded-2xl border p-4 transition-all duration-300 hover:border-primary/30 hover:shadow-[var(--shadow-soft)]", j.is_hidden && "bg-muted/50")}>
+                <span className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                  <Image src={categoryPhotoByName(j.category).src} alt="" fill sizes="56px" className="object-cover" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link href={`/jobs/${j.id}`} target="_blank" className="truncate font-semibold hover:text-primary-strong">{j.title}</Link>
+                    <JobStatusBadge status={j.status as JobStatus} />
+                    {j.is_hidden && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Masquée</span>}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {j.category} · {j.work_mode === "remote" ? "À distance" : `${j.neighborhood}, ${j.city}`} · par{" "}
+                    <Link href={`/admin/joblink?tab=users&user=${j.client_id}`} className="font-medium text-foreground hover:text-primary-strong hover:underline">{j.client_name}</Link>
+                    {" "}· {j.applications_count} candidature{j.applications_count > 1 ? "s" : ""} · {formatRelative(j.created_at)}
+                  </p>
+                  {j.is_hidden && j.moderation_note && <p className="mt-1 text-xs text-amber-800">Motif : {j.moderation_note}</p>}
+                </div>
+                <p className="font-bold tabular-nums text-primary-strong">
+                  {formatXOF(j.budget_amount)}<span className="text-xs font-medium text-muted-foreground">{PAY_UNIT[j.pay_type] ?? ""}</span>
+                </p>
+                <JobVisibilityToggle jobId={j.id} hidden={j.is_hidden} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Empty>{q || status ? "Aucune mission ne correspond à ces critères." : "Aucune mission publiée pour le moment."}</Empty>
+        )}
+        <Pager tab="jobs" page={page} total={jobs.total} size={OWNER_PAGE_SIZES.jobs} params={{ q, status }} />
+      </Card>
+    </div>
+  );
+}
+
+const PAYMENT_TABS: { key: OwnerPaymentFilter; label: string; count: keyof OwnerPayments["summary"]; tone?: "warning" }[] = [
+  { key: "", label: "Tous", count: "all" },
+  { key: "payout", label: "À verser", count: "payout", tone: "warning" },
+  { key: "pending", label: "En attente", count: "pending" },
+  { key: "succeeded", label: "Réussis", count: "succeeded" },
+  { key: "failed", label: "Échoués / annulés", count: "failed" },
+  { key: "refunded", label: "Remboursés", count: "refunded" },
+];
+
+function PaymentsTab({ payments, filter, page }: { payments: OwnerPayments | null; filter: OwnerPaymentFilter; page: number }) {
+  if (!payments) return <Card><Empty>Les paiements sont momentanément indisponibles.</Empty></Card>;
+  const s = payments.summary;
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <section className={cn("jl-rise rounded-[1.5rem] p-5 shadow-[var(--shadow-soft)]", s.payout > 0 ? "bg-amber-50 ring-1 ring-amber-200" : "bg-white ring-1 ring-border/70")}>
+          <p className="flex items-center gap-2 text-sm font-semibold text-amber-800"><Banknote className="size-4" /> À verser aux travailleurs</p>
+          <p className="mt-2 text-3xl font-extrabold tabular-nums">{formatXOF(s.payout_amount)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{s.payout} versement{s.payout > 1 ? "s" : ""} en attente</p>
+        </section>
+        <Card delay={60} className="p-5 sm:p-5">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground"><Wallet className="size-4 text-primary" /> Volume payé</p>
+          <p className="mt-2 text-3xl font-extrabold tabular-nums">{formatXOF(s.volume)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{s.succeeded} paiement{s.succeeded > 1 ? "s" : ""} réussi{s.succeeded > 1 ? "s" : ""}</p>
+        </Card>
+        <Card delay={120} className="p-5 sm:p-5">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground"><Sparkles className="size-4 text-primary" /> Commissions JOBLINK</p>
+          <p className="mt-2 text-3xl font-extrabold tabular-nums text-primary-strong">{formatXOF(s.commissions)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">5 % des missions payées</p>
+        </Card>
+      </div>
+
+      <Card delay={160}>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {PAYMENT_TABS.map((t) => (
+            <Chip key={t.key || "all"} href={`/admin/joblink?tab=payments${t.key ? `&filter=${t.key}` : ""}`} active={filter === t.key} label={t.label} count={s[t.count]} tone={t.tone} />
+          ))}
+          <div className="ml-auto">
+            <ExportCsv
+              filename="joblink-paiements"
+              headers={["Date", "Mission", "Client", "Travailleur", "Téléphone travailleur", "Montant (FCFA)", "Commission (FCFA)", "Frais (FCFA)", "Net (FCFA)", "Statut", "Versement", "Réf. versement", "Prestataire", "Réf. prestataire", "Reçu"]}
+              rows={payments.items.map((p) => [
+                (p.paid_at ?? p.created_at).slice(0, 10), p.job_title, p.payer_name, p.payee_name, p.payee_phone, p.amount, p.commission_amount,
+                p.provider_fee_amount, p.net_amount, p.status, PAYOUT_LABELS[p.payout_status]?.label ?? p.payout_status, p.payout_reference,
+                p.provider, p.provider_reference, p.receipt_number,
+              ])}
+            />
+          </div>
+        </div>
+        {filter === "payout" && payments.items.length > 0 && (
+          <p className="mb-4 rounded-2xl bg-accent/60 px-4 py-3 text-xs leading-relaxed text-accent-foreground">
+            Pour chaque ligne : envoyez le <strong>montant net</strong> au numéro du travailleur depuis votre compte marchand MTN MoMo ou Moov Money,
+            puis enregistrez la référence de la transaction. Le travailleur reçoit une notification.
+          </p>
+        )}
+        {payments.items.length ? (
+          <ul className="grid gap-3">
+            {payments.items.map((p) => {
+              const payout = PAYOUT_LABELS[p.payout_status];
+              const due = p.status === "succeeded" && p.payout_status !== "completed";
+              return (
+                <li key={p.id} className={cn("grid gap-3 rounded-2xl border p-4 lg:grid-cols-[1.4fr_1fr_auto] lg:items-center", due && "border-amber-200 bg-amber-50/30")}>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link href={`/jobs/${p.job_id}`} target="_blank" className="truncate font-semibold hover:text-primary-strong">{p.job_title}</Link>
+                      <PaymentStatusBadge status={p.status as PaymentStatus} />
+                      {p.status === "succeeded" && payout && <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", payout.cls)}>{payout.label}</span>}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      <Link href={`/admin/joblink?tab=users&user=${p.payer_id}`} className="font-medium text-foreground hover:underline">{p.payer_name}</Link>
+                      {" → "}
+                      <Link href={`/admin/joblink?tab=users&user=${p.payee_id}`} className="font-medium text-foreground hover:underline">{p.payee_name}</Link>
+                      {p.payee_phone && ` (${p.payee_phone})`} · {formatDateTime(p.paid_at ?? p.created_at)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {p.provider}{p.provider_reference ? ` · réf. ${p.provider_reference}` : ""}{p.receipt_number ? ` · reçu ${p.receipt_number}` : ""}
+                      {p.payout_reference ? ` · versement ${p.payout_reference}${p.payout_at ? ` le ${formatDate(p.payout_at)}` : ""}` : ""}
+                    </p>
+                    {p.failure_reason && <p className="mt-1 text-xs text-red-600">{p.failure_reason}</p>}
+                  </div>
+                  <dl className="grid grid-cols-3 gap-2 text-xs">
+                    <div><dt className="text-muted-foreground">Montant</dt><dd className="font-bold tabular-nums">{formatXOF(p.amount)}</dd></div>
+                    <div><dt className="text-muted-foreground">Commission</dt><dd className="font-bold tabular-nums text-primary-strong">{formatXOF(p.commission_amount)}</dd></div>
+                    <div><dt className="text-muted-foreground">Net travailleur</dt><dd className="font-bold tabular-nums">{formatXOF(p.net_amount)}</dd></div>
+                  </dl>
+                  <div className="lg:justify-self-end">{due && <PayoutForm paymentId={p.id} amount={formatXOF(p.net_amount)} phone={p.payee_phone} />}</div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <Empty>{filter === "payout" ? "Aucun versement en attente : tous les travailleurs ont été payés." : "Aucun paiement dans cette catégorie."}</Empty>
+        )}
+        <Pager tab="payments" page={page} total={payments.total} size={OWNER_PAGE_SIZES.payments} params={{ filter }} />
+      </Card>
+    </div>
+  );
+}
+
+const DISPUTE_STATUS: Record<OwnerDispute["status"], { label: string; cls: string }> = {
+  open: { label: "Nouveau", cls: "bg-red-50 text-red-700" },
+  under_review: { label: "En examen", cls: "bg-amber-100 text-amber-800" },
+  resolved_client: { label: "Résolu · client", cls: "bg-muted text-muted-foreground" },
+  resolved_worker: { label: "Résolu · travailleur", cls: "bg-muted text-muted-foreground" },
+  closed: { label: "Clos", cls: "bg-muted text-muted-foreground" },
+};
+const DOC_TYPES: Record<string, string> = { cni: "Carte d'identité", passport: "Passeport", driver_license: "Permis de conduire", cip: "CIP", other: "Autre document" };
+
+function CasesTab({ disputes, verifications, docs, showAll }: { disputes: OwnerDispute[] | null; verifications: OwnerVerification[] | null; docs: Record<string, string>; showAll: boolean }) {
+  return (
+    <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+      <Card>
+        <CardTitle
+          icon={Gavel}
+          action={
+            <Link href={showAll ? "/admin/joblink?tab=cases" : "/admin/joblink?tab=cases&all=1"} className="text-xs font-semibold text-primary-strong hover:underline">
+              {showAll ? "Litiges actifs seulement" : "Voir l'historique"}
+            </Link>
+          }
+        >
+          Litiges
+        </CardTitle>
+        {!disputes ? (
+          <Empty>Les litiges sont momentanément indisponibles.</Empty>
+        ) : disputes.length ? (
+          <ul className="grid gap-3">
+            {disputes.map((d) => {
+              const active = d.status === "open" || d.status === "under_review";
+              return (
+                <li key={d.id} className={cn("rounded-2xl border p-4", !active && "opacity-75")}>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className={cn("rounded-full px-2 py-0.5 font-semibold", DISPUTE_STATUS[d.status].cls)}>{DISPUTE_STATUS[d.status].label}</span>
+                    <span className="text-muted-foreground">ouvert {formatRelative(d.created_at)} · contrat de {formatXOF(d.agreed_amount)}</span>
+                  </div>
+                  <Link href={`/jobs/${d.job_id}`} target="_blank" className="mt-2 block font-semibold hover:text-primary-strong">{d.job_title}</Link>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <strong className="text-foreground">{d.opened_by_name}</strong> ({d.opened_by_role === "client" ? "client" : "travailleur"}) conteste face à{" "}
+                    <strong className="text-foreground">{d.against_name}</strong>
+                  </p>
+                  <p className="mt-2 rounded-xl bg-muted/50 px-3 py-2 text-sm leading-relaxed">
+                    <span className="font-semibold">{d.reason}</span>
+                    {d.details && d.details !== d.reason && <span className="mt-1 block whitespace-pre-line text-foreground/80">{d.details}</span>}
+                  </p>
+                  {d.resolution_note && <p className="mt-2 text-xs italic text-muted-foreground">Décision : {d.resolution_note}</p>}
+                  {active && <div className="mt-3"><DisputeDecision disputeId={d.id} underReview={d.status === "under_review"} /></div>}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <Empty>{showAll ? "Aucun litige enregistré." : "Aucun litige en cours. Tout se passe bien entre clients et travailleurs."}</Empty>
+        )}
+      </Card>
+
+      <Card delay={80}>
+        <CardTitle icon={UserCheck}>Vérifications d&apos;identité</CardTitle>
+        {!verifications ? (
+          <Empty>Les vérifications sont momentanément indisponibles.</Empty>
+        ) : verifications.length ? (
+          <ul className="grid gap-3">
+            {verifications.map((v) => {
+              const url = docs[v.document_path];
+              return (
+                <li key={v.id} className="rounded-2xl border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <Link href={`/admin/joblink?tab=users&user=${v.user_id}`} className="font-semibold hover:text-primary-strong hover:underline">{v.name}</Link>
+                      <p className="text-xs text-muted-foreground">{v.email}{v.phone ? ` · ${v.phone}` : ""}{v.city ? ` · ${v.city}` : ""}</p>
+                      {v.headline && <p className="mt-1 text-xs">{v.headline}</p>}
+                    </div>
+                    <span className="text-xs text-muted-foreground">{formatRelative(v.created_at)}</span>
+                  </div>
+                  <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-primary-strong">{DOC_TYPES[v.document_type] ?? v.document_type}</span>
+                    {url ? (
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-primary-strong hover:underline">
+                        <ExternalLink className="size-3.5" /> Voir le document (lien valable 15 min)
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Document : Supabase › Storage › verifications › {v.document_path}</span>
+                    )}
+                  </p>
+                  {v.note && <p className="mt-2 text-xs italic text-muted-foreground">« {v.note} »</p>}
+                  <div className="mt-3"><VerificationDecision requestId={v.id} name={v.name} /></div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <Empty>Aucune demande de vérification en attente.</Empty>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -812,29 +1249,37 @@ function IncidentsTab({ incidents }: { incidents: OwnerIncidents | null }) {
   );
 }
 
-export function OwnerDashboard({
-  tab,
-  data,
-  users,
-  q,
-  health,
-  incidents,
-  announcement,
-}: {
+export function OwnerDashboard(props: {
   tab: OwnerTab;
   data: OwnerOverview;
   users?: { total: number; items: OwnerUser[] };
   q: string;
+  page: number;
   health: OwnerHealth;
   incidents: OwnerIncidents | null;
   announcement?: OwnerAnnouncement | null;
+  userDetail: OwnerUserDetail | null;
+  userRequested: boolean;
+  jobs: OwnerJobs | null;
+  jobStatus: string;
+  payments: OwnerPayments | null;
+  paymentFilter: OwnerPaymentFilter;
+  disputes: OwnerDispute[] | null;
+  showAllDisputes: boolean;
+  verifications: OwnerVerification[] | null;
+  documentLinks: Record<string, string>;
 }) {
+  const { tab, data, users, q, page, health, incidents, announcement } = props;
   return (
     <Shell tab={tab} data={data} incidents={incidents}>
       {tab === "users" && users ? (
-        <UsersTab users={users} q={q} />
+        <UsersTab users={users} q={q} page={page} detail={props.userDetail} detailMissing={props.userRequested && !props.userDetail} />
       ) : tab === "jobs" ? (
-        <JobsTab data={data} />
+        <JobsTab jobs={props.jobs} q={q} status={props.jobStatus} page={page} />
+      ) : tab === "payments" ? (
+        <PaymentsTab payments={props.payments} filter={props.paymentFilter} page={page} />
+      ) : tab === "cases" ? (
+        <CasesTab disputes={props.disputes} verifications={props.verifications} docs={props.documentLinks} showAll={props.showAllDisputes} />
       ) : tab === "moderation" ? (
         <ModerationTab data={data} />
       ) : tab === "incidents" ? (

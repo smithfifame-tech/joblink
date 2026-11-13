@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Check, EyeOff, Eye, Loader2, Ban, RotateCcw, X, Search } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Check, EyeOff, Eye, Loader2, Ban, RotateCcw, X } from "lucide-react";
 import {
   markContactAction,
   moderateJobAction,
@@ -110,35 +109,6 @@ export function ContactHandled({ id }: { id: string }) {
     <button type="button" disabled={pending} onClick={() => run(() => markContactAction(id), "Message marqué comme traité.")} className={cn(pill, "border-border bg-white text-muted-foreground hover:border-primary/30 hover:bg-accent hover:text-primary-strong")}>
       {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Traité
     </button>
-  );
-}
-
-export function UserSearch() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const [q, setQ] = useState(params.get("q") ?? "");
-  const [pending, start] = useTransition();
-  return (
-    <form
-      role="search"
-      onSubmit={(e) => {
-        e.preventDefault();
-        start(() => router.push(`/admin/joblink?tab=users${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ""}`));
-      }}
-      className="flex w-full max-w-md items-center gap-2 rounded-full border border-border/80 bg-white p-1.5 pl-4 shadow-[var(--shadow-soft)] transition-shadow focus-within:ring-4 focus-within:ring-primary/15"
-    >
-      <Search className="size-4 shrink-0 text-primary" aria-hidden />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Nom, e-mail, téléphone, ville…"
-        aria-label="Rechercher un utilisateur"
-        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-      />
-      <button type="submit" className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-strong">
-        {pending && <Loader2 className="size-3.5 animate-spin" />} Rechercher
-      </button>
-    </form>
   );
 }
 

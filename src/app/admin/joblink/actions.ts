@@ -32,6 +32,13 @@ export async function ownerLogoutAction(): Promise<void> {
 const id = z.string().uuid();
 const note = z.string().trim().max(500).optional();
 
+const ERROR_MESSAGES: Record<string, string> = {
+  INVALID_TRANSITION: "Ce dossier a déjà été traité. Actualisez la page.",
+  NOTE_REQUIRED: "Ajoutez une explication (5 caractères minimum).",
+  INVALID_REFERENCE: "Indiquez la référence de la transaction Mobile Money.",
+  PAYMENT_NOT_FOUND: "Ce paiement n'est pas encore confirmé : versement impossible.",
+};
+
 async function guarded(fn: () => Promise<unknown>): Promise<{ ok: boolean; error?: string }> {
   try {
     await fn();
@@ -39,7 +46,8 @@ async function guarded(fn: () => Promise<unknown>): Promise<{ ok: boolean; error
     return { ok: true };
   } catch (e) {
     if (e instanceof Error && e.message === "SESSION_EXPIRED") redirect(OWNER_PATH);
-    return { ok: false, error: "Action impossible pour le moment." };
+    const code = e instanceof Error ? e.message : "";
+    return { ok: false, error: ERROR_MESSAGES[code] ?? "Action impossible pour le moment." };
   }
 }
 
@@ -95,4 +103,29 @@ export async function setAnnouncementAction(input: { message: string; tone: stri
   );
   if (res.ok) revalidatePath("/api/announcement");
   return res;
+}
+
+export async function recordPayoutAction(paymentId: string, reference: string) {
+  const parsed = z.object({ paymentId: id, reference: z.string().trim().min(3).max(120) }).safeParse({ paymentId, reference });
+  if (!parsed.success) return { ok: false, error: "Indiquez la référence de la transaction Mobile Money (3 caractères minimum)." };
+  return guarded(() => ownerApi.recordPayout(parsed.data.paymentId, parsed.data.reference));
+}
+
+export async function resolveDisputeAction(disputeId: string, status: string, decision: string) {
+  const parsed = z
+    .object({
+      disputeId: id,
+      status: z.enum(["under_review", "resolved_client", "resolved_worker", "closed"]),
+      decision: z.string().trim().min(5).max(2000),
+    })
+    .safeParse({ disputeId, status, decision });
+  if (!parsed.success) return { ok: false, error: "Choisissez une décision et expliquez-la (5 caractères minimum)." };
+  return guarded(() => ownerApi.resolveDispute(parsed.data.disputeId, parsed.data.status, parsed.data.decision));
+}
+
+export async function reviewVerificationAction(requestId: string, approve: boolean, reason?: string) {
+  const parsed = z.object({ requestId: id, approve: z.boolean(), reason: z.string().trim().max(500).optional() }).safeParse({ requestId, approve, reason });
+  if (!parsed.success) return { ok: false, error: "Données invalides." };
+  if (!approve && !parsed.data.reason) return { ok: false, error: "Expliquez au travailleur pourquoi le document est refusé." };
+  return guarded(() => ownerApi.reviewVerification(parsed.data.requestId, approve, parsed.data.reason || undefined));
 }

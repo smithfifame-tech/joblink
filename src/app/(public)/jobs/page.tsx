@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Map, SearchX } from "lucide-react";
 import { JobCard } from "@/components/jobs/job-card";
+import { PublishPromptCard } from "@/components/jobs/publish-prompt-card";
 import { JobFilters } from "@/components/jobs/job-filters";
 import { NearMeButton } from "@/components/jobs/near-me-button";
 import { CityDatalist } from "@/components/layout/city-datalist";
@@ -85,6 +86,9 @@ export default async function JobsPage({ searchParams }: { searchParams: SP }) {
               {result.rows.map((job) => (
                 <JobCard key={job.id} job={job} />
               ))}
+              {/* Peu de résultats : proposer de publier le besoin plutôt que de laisser un grand vide */}
+              {result.total < 3 && <PublishPromptCard />}
+              {result.total < 2 && <PublishPromptCard variant="worker" className="hidden xl:flex" />}
             </div>
           )}
           <Pagination page={page} pageSize={PAGE_SIZE} total={result.total} basePath="/jobs" params={params as Record<string, string | number | undefined>} />

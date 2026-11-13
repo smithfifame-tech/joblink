@@ -21,7 +21,9 @@ export default async function CategoriesPage() {
               <h2 className="font-semibold">{c.name}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{c.description}</p>
               <p className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
-                {counts[c.slug] ?? 0} mission{(counts[c.slug] ?? 0) > 1 ? "s" : ""} ouverte{(counts[c.slug] ?? 0) > 1 ? "s" : ""}
+                {(counts[c.slug] ?? 0) > 0
+                  ? `${counts[c.slug]} mission${counts[c.slug]! > 1 ? "s" : ""} ouverte${counts[c.slug]! > 1 ? "s" : ""}`
+                  : "Voir les missions"}
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </p>
             </div>

@@ -51,6 +51,20 @@ export function initials(first?: string | null, last?: string | null): string {
   return `${(first ?? "").charAt(0)}${(last ?? "").charAt(0)}`.toUpperCase() || "JL";
 }
 
+/**
+ * Texte saisi entièrement en MAJUSCULES → casse de phrase lisible
+ * (« JE CHERCHE UN ARCHITECTE » → « Je cherche un architecte »). Les textes déjà en casse normale sont inchangés.
+ */
+export function readableCase(text: string): string {
+  const letters = text.match(/\p{L}/gu) ?? [];
+  if (letters.length < 6) return text;
+  const upper = letters.filter((c) => c !== c.toLowerCase()).length;
+  if (upper / letters.length < 0.8) return text;
+  return text
+    .toLocaleLowerCase("fr-FR")
+    .replace(/(^|[.!?…]\s+|\n\s*)(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase("fr-FR"));
+}
+
 export function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }

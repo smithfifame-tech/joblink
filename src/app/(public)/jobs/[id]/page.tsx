@@ -21,7 +21,7 @@ import { categoryPhoto } from "@/lib/media/category-photos";
 import { requireUser } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { publicEnv, storagePublicUrl } from "@/lib/env";
-import { formatDate, formatRelative, formatXOF } from "@/lib/utils/format";
+import { formatDate, formatRelative, formatXOF, readableCase } from "@/lib/utils/format";
 import type { Application, PublicProfile } from "@/types/db";
 
 type Params = Promise<{ id: string }>;
@@ -30,12 +30,13 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { id } = await params;
   const job = await getPublicJob(id).catch(() => null);
   if (!job) return { title: "Mission introuvable", robots: { index: false } };
-  const description = `${job.category_name} à ${job.city} · ${formatXOF(job.budget_amount)} — ${job.description.slice(0, 140)}`;
+  const title = readableCase(job.title);
+  const description = `${job.category_name} à ${job.city} · ${formatXOF(job.budget_amount)} — ${readableCase(job.description).slice(0, 140)}`;
   return {
-    title: job.title,
+    title,
     description,
     alternates: { canonical: `/jobs/${job.id}` },
-    openGraph: { title: job.title, description, type: "article" },
+    openGraph: { title, description, type: "article" },
     robots: job.status === "published" || job.status === "reviewing" ? undefined : { index: false },
   };
 }
@@ -101,7 +102,7 @@ export default async function JobDetailPage({ params }: { params: Params }) {
             cover={cover}
             categoryName={job.category_name}
             categoryIcon={job.category_icon}
-            title={job.title}
+            title={readableCase(job.title)}
             place={job.work_mode === "remote" ? "À distance" : `${job.neighborhood}, ${job.city}`}
             remote={job.work_mode === "remote"}
             startDate={job.start_date}
@@ -132,7 +133,7 @@ export default async function JobDetailPage({ params }: { params: Params }) {
 
           <section>
             <h2 className="text-lg font-semibold">Description</h2>
-            <p className="mt-2 whitespace-pre-line leading-relaxed text-foreground/90">{job.description}</p>
+            <p className="mt-2 whitespace-pre-line leading-relaxed text-foreground/90">{readableCase(job.description)}</p>
           </section>
 
           {job.skills_required.length > 0 && (

@@ -14,6 +14,8 @@ import { serverEnv } from "@/lib/env.server";
 export const OWNER_COOKIE = "jl_owner";
 export const OWNER_PATH = "/admin/joblink";
 const SESSION_SECONDS = 8 * 3600;
+/** Taille des pages des listes du tableau de bord. */
+export const OWNER_PAGE_SIZES = { users: 50, jobs: 20, payments: 25 } as const;
 
 let client: SupabaseClient | null = null;
 function db(): SupabaseClient {
@@ -82,11 +84,17 @@ export async function ownerSession(): Promise<string | null> {
   return !error && data === true ? t : null;
 }
 
+/** Codes d'erreur métier transmis tels quels à l'interface (aucun détail technique). */
+const KNOWN_ERRORS = ["SESSION_EXPIRED", "INVALID_TRANSITION", "NOTE_REQUIRED", "INVALID_REFERENCE", "PAYMENT_NOT_FOUND", "USER_NOT_FOUND", "DISPUTE_NOT_FOUND"] as const;
+
 async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   const t = await token();
   if (!t) throw new Error("SESSION_EXPIRED");
   const { data, error } = await db().rpc(fn, { p_server_key: serverEnv.ownerPanelServerKey, p_token: t, ...args });
-  if (error) throw new Error(error.message.includes("SESSION_EXPIRED") ? "SESSION_EXPIRED" : "ACTION_FAILED");
+  if (error) {
+    const known = KNOWN_ERRORS.find((code) => error.message.includes(code));
+    throw new Error(known ?? "ACTION_FAILED");
+  }
   return data as T;
 }
 
@@ -130,7 +138,67 @@ export type OwnerAnnouncement = {
   active: boolean; expires_at: string | null; updated_at: string; visible: boolean;
 };
 
+export type OwnerJob = {
+  id: string; title: string; city: string; neighborhood: string; budget_amount: number; pay_type: string; status: string;
+  is_hidden: boolean; moderation_note: string | null; created_at: string; deadline: string; applications_count: number;
+  category: string; client_id: string; client_name: string; work_mode: string;
+};
+export type OwnerJobs = {
+  total: number;
+  counts: Record<"open" | "active" | "completed" | "disputed" | "hidden", number>;
+  items: OwnerJob[];
+};
+
+export type OwnerUserDetail = {
+  profile: {
+    id: string; first_name: string; last_name: string; email: string; phone: string | null; city: string | null; neighborhood: string | null;
+    avatar_url: string | null; bio: string | null; created_at: string; is_suspended: boolean; suspended_reason: string | null; suspended_at: string | null;
+  };
+  roles: string[];
+  worker: { headline: string | null; is_verified: boolean; rating_avg: number; rating_count: number; completed_jobs_count: number; availability: string; experience_years: number | null } | null;
+  stats: { jobs: number; applications: number; contracts: number; paid: number; earned: number; reports_against: number };
+  jobs: { id: string; title: string; status: string; is_hidden: boolean; budget_amount: number; created_at: string; applications_count: number }[];
+  applications: { id: string; status: string; created_at: string; job_id: string; job_title: string }[];
+  payments: { id: string; amount: number; net_amount: number; status: string; payout_status: string; created_at: string; side: "payer" | "payee" }[];
+  history: { action: string; created_at: string; metadata: Record<string, unknown> | null }[];
+};
+
+export type OwnerPaymentFilter = "" | "pending" | "payout" | "succeeded" | "failed" | "refunded";
+export type OwnerPayment = {
+  id: string; amount: number; commission_amount: number; provider_fee_amount: number; net_amount: number; status: string;
+  payout_status: string; payout_reference: string | null; payout_at: string | null; provider: string; provider_reference: string | null;
+  receipt_number: string | null; failure_reason: string | null; created_at: string; paid_at: string | null; job_id: string; job_title: string;
+  payer_name: string; payee_name: string; payee_phone: string | null; payee_id: string; payer_id: string;
+};
+export type OwnerPayments = {
+  total: number;
+  summary: Record<"all" | "pending" | "payout" | "payout_amount" | "succeeded" | "failed" | "refunded" | "volume" | "commissions", number>;
+  items: OwnerPayment[];
+};
+
+export type OwnerDispute = {
+  id: string; status: "open" | "under_review" | "resolved_client" | "resolved_worker" | "closed"; reason: string; details: string | null;
+  resolution_note: string | null; created_at: string; resolved_at: string | null; job_id: string; job_title: string; agreed_amount: number;
+  opened_by_name: string; opened_by_role: "client" | "worker"; against_name: string;
+};
+export type OwnerVerification = {
+  id: string; user_id: string; document_type: string; document_path: string; note: string | null; created_at: string;
+  name: string; email: string; phone: string | null; city: string | null; headline: string | null;
+};
+
 export const ownerApi = {
+  jobs: (q: string, status: string, limit = 25, offset = 0) =>
+    call<OwnerJobs>("owner_panel_jobs", { p_search: q || null, p_status: status || null, p_limit: limit, p_offset: offset }),
+  userDetail: (user: string) => call<OwnerUserDetail>("owner_panel_user_detail", { p_user: user }),
+  payments: (filter: OwnerPaymentFilter, limit = 25, offset = 0) =>
+    call<OwnerPayments>("owner_panel_payments", { p_filter: filter || null, p_limit: limit, p_offset: offset }),
+  recordPayout: (payment: string, reference: string) => call<null>("owner_panel_record_payout", { p_payment: payment, p_reference: reference }),
+  disputes: (all = false) => call<OwnerDispute[]>("owner_panel_disputes", { p_all: all }),
+  resolveDispute: (dispute: string, status: "under_review" | "resolved_client" | "resolved_worker" | "closed", note: string) =>
+    call<null>("owner_panel_resolve_dispute", { p_dispute: dispute, p_status: status, p_note: note }),
+  verifications: () => call<OwnerVerification[]>("owner_panel_verifications", {}),
+  reviewVerification: (request: string, approve: boolean, note?: string) =>
+    call<null>("owner_panel_review_verification", { p_request: request, p_approve: approve, p_note: note ?? null }),
   announcement: () => call<OwnerAnnouncement>("owner_panel_get_announcement", {}),
   setAnnouncement: (a: { message: string; tone: string; linkUrl: string | null; linkLabel: string | null; active: boolean; hours: number | null }) =>
     call<null>("owner_panel_set_announcement", {

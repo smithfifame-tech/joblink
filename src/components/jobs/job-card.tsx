@@ -6,7 +6,7 @@ import { PAY_TYPE_LABEL } from "./status-badge";
 import { storagePublicUrl } from "@/lib/env";
 import { categoryPhoto } from "@/lib/media/category-photos";
 import { deadlineLabel, isNew, isUrgent } from "@/lib/jobs/signals";
-import { formatDate, formatDistanceKm, formatRelative, formatXOF, truncate } from "@/lib/utils/format";
+import { formatDate, formatDistanceKm, formatRelative, formatXOF, readableCase, truncate } from "@/lib/utils/format";
 import type { PayType, WorkMode } from "@/types/db";
 import { cn } from "@/lib/utils";
 
@@ -113,7 +113,7 @@ export function JobCard({
             <p className="truncate text-[11px] font-medium text-muted-foreground">{job.category_name}</p>
             {isUrgent(job.deadline) && <Flame className="size-3 shrink-0 text-amber-500" aria-label="Urgent" />}
           </div>
-          <h3 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug group-hover:text-primary-strong">{job.title}</h3>
+          <h3 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug group-hover:text-primary-strong">{readableCase(job.title)}</h3>
           <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
             {job.work_mode === "remote" ? <Wifi className="size-3 shrink-0" /> : <MapPin className="size-3 shrink-0" />}
             <span className="truncate">{place}</span>
@@ -173,9 +173,9 @@ export function JobCard({
           {/* Corps */}
           <div className="flex flex-1 flex-col px-5 pb-4 pt-4">
             <h3 className="line-clamp-2 text-[1.05rem] font-bold leading-snug tracking-[-0.01em] text-foreground transition-colors group-hover:text-primary-strong">
-              {job.title}
+              {readableCase(job.title)}
             </h3>
-            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{truncate(job.description, 160)}</p>
+            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{truncate(readableCase(job.description), 160)}</p>
             <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-3.5 text-xs text-muted-foreground">
               <span className={cn("inline-flex items-center gap-1", countdown && isUrgent(job.deadline) && "font-semibold text-amber-700")}>
                 <CalendarClock className="size-3.5" /> {countdown ?? (job.deadline ? `Avant le ${formatDate(job.deadline, "d MMM")}` : "Date limite à définir")}
