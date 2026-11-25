@@ -159,9 +159,22 @@ export const saspayAdapter: PaymentAdapter = {
       headers.get("x-webhook-timestamp"),
       serverEnv.saspayWebhookSecret,
     );
-    if (!check.valid) throw new WebhookSignatureError(check.reason);
+    if (!check.valid) {
+      // Diagnostic sans fuite : raison + forme des en-têtes (longueurs), jamais le secret ni la signature.
+      console.warn("[saspay-webhook] signature refusée", {
+        reason: check.reason,
+        sigLength: headers.get("x-webhook-signature")?.length ?? 0,
+        tsLength: headers.get("x-webhook-timestamp")?.length ?? 0,
+        secretLength: serverEnv.saspayWebhookSecret.length,
+        bodyLength: rawBody.length,
+      });
+      throw new WebhookSignatureError(check.reason);
+    }
 
-    const event = JSON.parse(rawBody) as { event?: string; data?: { id?: string; status?: string; type?: string } };
+    const event = JSON.parse(rawBody) as {
+      event?: string;
+      data?: { id?: string; status?: string; type?: string; metadata?: { payment_id?: string } | null };
+    };
     const name = event.event ?? "unknown";
     const trxId = event.data?.id;
     // SasPay ne fournit pas d'identifiant d'événement : (événement, transaction, statut) est stable d'une relivraison à l'autre.
@@ -176,7 +189,9 @@ export const saspayAdapter: PaymentAdapter = {
 
     // Le webhook est signé, mais on ne confirme qu'après relecture authentifiée de la transaction.
     const trx = await call<SaspayTransaction>("GET", `/payments/${encodeURIComponent(trxId)}/verify/`);
-    const paymentId = extractJoblinkPaymentId(trx.description);
+    // Référence JOBLINK : métadonnées de la session (présentes dans le webhook), sinon description de la transaction
+    const metaId = event.data?.metadata?.payment_id;
+    const paymentId = (metaId && /^[0-9a-f-]{36}$/i.test(metaId) ? metaId.toLowerCase() : undefined) ?? extractJoblinkPaymentId(trx.description);
     if (!paymentId) return { kind: "ignored", eventId, reason: "transaction hors JOBLINK" };
     if (trx.status !== "SUCCESS") return { kind: "ignored", eventId, reason: `vérification : ${trx.status ?? "inconnu"}` };
     if (trx.currency && trx.currency !== "XOF") return { kind: "ignored", eventId, reason: `devise ${trx.currency}` };

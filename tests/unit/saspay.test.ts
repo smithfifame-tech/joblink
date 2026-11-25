@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { signTimestampedPayload, verifyTimestampedSignature } from "@/lib/payments/signature";
 import {
@@ -15,6 +16,14 @@ describe("signature des webhooks SasPay", () => {
   it("accepte une signature valide et récente", () => {
     const h = signTimestampedPayload(body, "secret", now);
     expect(verifyTimestampedSignature(body, h.signature, h.timestamp, "secret", { now })).toEqual({ valid: true });
+  });
+
+  it("accepte les variantes de format (préfixe sha256=, majuscules, horodatage en millisecondes)", () => {
+    const h = signTimestampedPayload(body, "secret", now);
+    expect(verifyTimestampedSignature(body, `sha256=${h.signature.toUpperCase()}`, h.timestamp, "secret", { now })).toEqual({ valid: true });
+    const ms = String(now * 1000);
+    const sigMs = createHmac("sha256", "secret").update(`${ms}.${body}`).digest("hex");
+    expect(verifyTimestampedSignature(body, sigMs, ms, "secret", { now })).toEqual({ valid: true });
   });
 
   it("rejette corps modifié, mauvais secret, en-têtes absents et horodatage hors tolérance", () => {

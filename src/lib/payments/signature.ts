@@ -59,13 +59,20 @@ export function verifyTimestampedSignature(
 ): { valid: true } | { valid: false; reason: string } {
   if (!secret) return { valid: false, reason: "missing_secret" };
   if (!signatureHeader || !timestampHeader) return { valid: false, reason: "missing_header" };
-  if (!/^\d{1,12}$/.test(timestampHeader.trim())) return { valid: false, reason: "bad_timestamp" };
-  const timestamp = Number.parseInt(timestampHeader.trim(), 10);
-  const expected = computeSignature(`${timestamp}.${rawBody}`, secret);
-  if (!safeEqualHex(signatureHeader.trim().toLowerCase(), expected)) return { valid: false, reason: "mismatch" };
+  const ts = timestampHeader.trim();
+  if (!/^\d{1,16}$/.test(ts)) return { valid: false, reason: "bad_timestamp" };
+  // Variantes tolérées : préfixe « sha256= », majuscules, plusieurs signatures séparées par des virgules (rotation).
+  const candidates = signatureHeader
+    .split(",")
+    .map((v) => v.trim().replace(/^(sha256|v1|s)=/i, "").toLowerCase())
+    .filter(Boolean);
+  const expected = computeSignature(`${ts}.${rawBody}`, secret);
+  if (!candidates.some((c) => safeEqualHex(c, expected))) return { valid: false, reason: "mismatch" };
+  // Horodatage en secondes (documenté) ou en millisecondes
+  const seconds = ts.length >= 13 ? Math.floor(Number(ts) / 1000) : Number(ts);
   const now = opts.now ?? Math.floor(Date.now() / 1000);
   const tolerance = opts.tolerance ?? SIGNATURE_TOLERANCE_SECONDS;
-  if (Math.abs(now - timestamp) > tolerance) return { valid: false, reason: "expired" };
+  if (Math.abs(now - seconds) > tolerance) return { valid: false, reason: "expired" };
   return { valid: true };
 }
 
