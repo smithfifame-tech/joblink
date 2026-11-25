@@ -2,6 +2,7 @@ import "server-only";
 import { serverEnv } from "@/lib/env.server";
 import { createHmac } from "node:crypto";
 import { verifyTimestampedSignature } from "../signature";
+import { rateLimit } from "@/lib/security/rate-limit";
 import { WebhookSignatureError, type PaymentAdapter, type WebhookOutcome } from "../types";
 
 /**
@@ -160,6 +161,28 @@ interface SaspayTransaction {
   net_amount?: string;
 }
 
+interface SaspaySession {
+  id: string;
+  status?: string;
+  transaction?: string | { id?: string } | null;
+  metadata?: { payment_id?: unknown } | null;
+}
+
+/** Session de checkout PAYÉE liée à une transaction (lecture authentifiée, 2 pages de 100 au plus). */
+async function findPaidSessionFor(trxId: string): Promise<SaspaySession | null> {
+  for (let page = 1; page <= 2; page++) {
+    const list = await call<{ results?: SaspaySession[]; next?: string | null } | SaspaySession[]>(
+      "GET",
+      `/checkout-sessions/?status=PAID&page_size=100&page=${page}`,
+    ).catch(() => null);
+    const rows = Array.isArray(list) ? list : (list?.results ?? []);
+    const hit = rows.find((s) => (typeof s.transaction === "string" ? s.transaction : s.transaction?.id) === trxId);
+    if (hit) return hit;
+    if (Array.isArray(list) || !list?.next) break;
+  }
+  return null;
+}
+
 export const saspayAdapter: PaymentAdapter = {
   id: "saspay",
   label: "SasPay",
@@ -192,48 +215,69 @@ export const saspayAdapter: PaymentAdapter = {
       headers.get("x-webhook-timestamp"),
       serverEnv.saspayWebhookSecret,
     );
-    if (!check.valid) {
-      // Diagnostic sans fuite : raison + forme des en-têtes (longueurs), jamais le secret ni la signature.
-      console.warn("[saspay-webhook] signature refusée", {
+    // Signature valide : le contenu de l'événement (dont metadata) est digne de confiance.
+    // Signature absente ou différente : l'événement n'est qu'un SIGNAL. Rien de son contenu n'est cru ;
+    // la transaction est relue par l'API authentifiée (clé secrète) et le paiement JOBLINK est retrouvé
+    // uniquement à partir des données renvoyées par SasPay. Un faux message ne peut donc rien valider.
+    const signed = check.valid;
+    if (!signed) {
+      const ip = headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+      if (!(await rateLimit("saspay-webhook-unsigned", ip, 30, 60))) throw new WebhookSignatureError("rate_limited");
+      console.warn("[saspay-webhook] signature non concordante : vérification par l'API uniquement", {
         reason: check.reason,
-        sigLength: headers.get("x-webhook-signature")?.length ?? 0,
-        tsLength: headers.get("x-webhook-timestamp")?.length ?? 0,
         secretLength: serverEnv.saspayWebhookSecret.length,
-        bodyLength: rawBody.length,
       });
-      throw new WebhookSignatureError(check.reason);
     }
 
-    const event = JSON.parse(rawBody) as {
-      event?: string;
-      data?: { id?: string; status?: string; type?: string; metadata?: { payment_id?: string } | null };
-    };
-    const name = event.event ?? "unknown";
-    const trxId = event.data?.id;
+    let event: { event?: string; data?: { id?: string; status?: string; type?: string; metadata?: { payment_id?: string } | null } };
+    try {
+      event = JSON.parse(rawBody);
+    } catch {
+      throw new WebhookSignatureError("invalid_json");
+    }
+    const name = typeof event.event === "string" ? event.event : "unknown";
+    const trxId = typeof event.data?.id === "string" && /^[0-9a-f-]{36}$/i.test(event.data.id) ? event.data.id : undefined;
     // SasPay ne fournit pas d'identifiant d'événement : (événement, transaction, statut) est stable d'une relivraison à l'autre.
-    const eventId = `${name}:${trxId ?? "none"}:${event.data?.status ?? ""}`;
+    const eventId = `${name}:${trxId ?? "none"}:${String(event.data?.status ?? "").slice(0, 20)}`;
 
-    if (!name.startsWith("transaction.") || !trxId) return { kind: "ignored", eventId, reason: name };
-    if (event.data?.type && event.data.type !== "PAIEMENT") return { kind: "ignored", eventId, reason: `type ${event.data.type}` };
+    if (!name.startsWith("transaction.") || !trxId) return { kind: "ignored", eventId, reason: name.slice(0, 60) };
+    if (event.data?.type && event.data.type !== "PAIEMENT") return { kind: "ignored", eventId, reason: `type ${String(event.data.type).slice(0, 20)}` };
     if (name !== "transaction.success") {
       // Échec d'une tentative sur la page hébergée : le client peut réessayer sur la même session.
       return { kind: "ignored", eventId, reason: `${name} (session toujours ouverte)` };
     }
 
-    // Le webhook est signé, mais on ne confirme qu'après relecture authentifiée de la transaction.
+    // Dans tous les cas : relecture authentifiée de la transaction (source de vérité).
     const trx = await call<SaspayTransaction>("GET", `/payments/${encodeURIComponent(trxId)}/verify/`);
-    // Référence JOBLINK : métadonnées de la session (présentes dans le webhook), sinon description de la transaction
-    const metaId = event.data?.metadata?.payment_id;
-    const paymentId = (metaId && /^[0-9a-f-]{36}$/i.test(metaId) ? metaId.toLowerCase() : undefined) ?? extractJoblinkPaymentId(trx.description);
-    if (!paymentId) return { kind: "ignored", eventId, reason: "transaction hors JOBLINK" };
     if (trx.status !== "SUCCESS") return { kind: "ignored", eventId, reason: `vérification : ${trx.status ?? "inconnu"}` };
     if (trx.currency && trx.currency !== "XOF") return { kind: "ignored", eventId, reason: `devise ${trx.currency}` };
+
+    // Rapprochement avec le paiement JOBLINK
+    let paymentId: string | undefined;
+    let reference: string | null = null;
+    if (signed) {
+      const metaId = event.data?.metadata?.payment_id;
+      paymentId = metaId && /^[0-9a-f-]{36}$/i.test(metaId) ? metaId.toLowerCase() : undefined;
+    }
+    if (!paymentId) {
+      // Données SasPay uniquement : la session payée liée à cette transaction (id de session = référence
+      // enregistrée par JOBLINK, contrôlée en base) ou, à défaut, la référence JL:<uuid> de la description.
+      const session = await findPaidSessionFor(trxId);
+      const sessionPaymentId = session?.metadata?.payment_id;
+      if (session && typeof sessionPaymentId === "string" && /^[0-9a-f-]{36}$/i.test(sessionPaymentId)) {
+        paymentId = sessionPaymentId.toLowerCase();
+        reference = session.id;
+      } else {
+        paymentId = extractJoblinkPaymentId(trx.description);
+      }
+    }
+    if (!paymentId) return { kind: "ignored", eventId, reason: "transaction hors JOBLINK" };
 
     // Frais supportés par JOBLINK = montant demandé − montant net reçu (0 si les frais sont ajoutés au client).
     const requested = parseAmount(trx.requested_amount);
     const net = parseAmount(trx.net_amount);
     const providerFee = requested !== null && net !== null ? Math.max(0, Math.round(requested - net)) : null;
-    return { kind: "succeeded", eventId, reference: null, providerFee, paymentId };
+    return { kind: "succeeded", eventId, reference, providerFee, paymentId };
   },
 
   async fetchStatus(reference) {

@@ -16,6 +16,7 @@ const state = {
   payments: [{ id: PAYMENT_ID, provider: "saspay", provider_reference: SESSION_ID, status: "processing" }],
   rpc: [] as { fn: string; args: Record<string, unknown> }[],
   verify: {} as Record<string, unknown>,
+  sessions: [] as Record<string, unknown>[],
   fetches: [] as { url: string; init: RequestInit }[],
 };
 
@@ -27,6 +28,7 @@ async function fakeServerRpc(fn: string, args: Record<string, unknown> = {}) {
     return { data: { duplicate: false, id: `evt-${state.events.size}` }, error: null };
   }
   if (fn === "srv_webhook_finish") return { data: null, error: null };
+  if (fn === "srv_check_rate_limit") return { data: true, error: null };
   if (fn === "srv_find_payment") {
     const p = state.payments.find(
       (x) => x.provider === args.p_provider && ((args.p_reference && x.provider_reference === args.p_reference) || (args.p_payment_id && x.id === args.p_payment_id)),
@@ -73,9 +75,11 @@ beforeEach(() => {
     currency: "XOF",
     status: "SUCCESS",
   };
+  state.sessions = [];
   vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
     state.fetches.push({ url, init });
-    return new Response(JSON.stringify(state.verify), { status: 200, headers: { "content-type": "application/json" } });
+    const payload = url.includes("/checkout-sessions/?") ? { count: state.sessions.length, next: null, results: state.sessions } : state.verify;
+    return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
   }));
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -86,7 +90,7 @@ describe("webhook SasPay", () => {
     const { body, headers } = webhook("transaction.success", { id: TRX_ID, type: "PAIEMENT", status: "SUCCESS", amount: "10000.00" });
     const res = await processPaymentWebhook("saspay", body, headers);
     expect(res.status).toBe(200);
-    expect(state.fetches).toHaveLength(1);
+    expect(state.fetches.length).toBeGreaterThanOrEqual(1); // + recherche de la session payée (absente ici)
     expect(state.fetches[0]!.url).toBe(`https://sandbox-api.saspay.me/api/v1/payments/${TRX_ID}/verify/`);
     expect((state.fetches[0]!.init.headers as Record<string, string>).Authorization).toBe("Bearer sk_test_abc");
     // référence null → le paiement est retrouvé par JL:<uuid> et garde l'id de session enregistré
@@ -141,14 +145,37 @@ describe("webhook SasPay", () => {
     expect(state.rpc).toHaveLength(0);
   });
 
-  it("rejette une mauvaise signature ou un horodatage trop ancien (401)", async () => {
+  it("signature non concordante : ne croit rien du message et retrouve le paiement par l'API (session payée)", async () => {
+    state.sessions = [{ id: SESSION_ID, status: "PAID", transaction: TRX_ID, metadata: { payment_id: PAYMENT_ID, source: "joblink" } }];
     const { processPaymentWebhook } = await load();
-    const bad = webhook("transaction.success", { id: TRX_ID }, "mauvais-secret");
-    expect((await processPaymentWebhook("saspay", bad.body, bad.headers)).status).toBe(401);
-    const old = webhook("transaction.success", { id: TRX_ID }, SECRET, Math.floor(Date.now() / 1000) - 600);
-    expect((await processPaymentWebhook("saspay", old.body, old.headers)).status).toBe(401);
-    expect(state.events.size).toBe(0);
+    const forged = "bbbbbbbb-1111-4222-8333-444444444444";
+    const { body, headers } = webhook("transaction.success", { id: TRX_ID, type: "PAIEMENT", status: "SUCCESS", metadata: { payment_id: forged } }, "mauvais-secret");
+    const res = await processPaymentWebhook("saspay", body, headers);
+    expect(res.status).toBe(200);
+    // le payment_id du message (falsifiable) est ignoré ; seule la session lue chez SasPay compte, avec sa référence
+    expect(state.rpc).toEqual([{ fn: "srv_confirm_payment", args: { p_payment_id: PAYMENT_ID, p_reference: SESSION_ID, p_fee: 150 } }]);
+    expect(state.fetches.map((f) => f.url)).toEqual([
+      `https://sandbox-api.saspay.me/api/v1/payments/${TRX_ID}/verify/`,
+      "https://sandbox-api.saspay.me/api/v1/checkout-sessions/?status=PAID&page_size=100&page=1",
+    ]);
+  });
+
+  it("signature non concordante : rien n'est validé si SasPay ne confirme pas la transaction", async () => {
+    state.verify = { ...state.verify, status: "FAILED" };
+    const { processPaymentWebhook } = await load();
+    const { body, headers } = webhook("transaction.success", { id: TRX_ID, type: "PAIEMENT", status: "SUCCESS" }, "mauvais-secret", Math.floor(Date.now() / 1000) - 600);
+    const res = await processPaymentWebhook("saspay", body, headers);
+    expect(res.status).toBe(200);
+    expect(state.rpc).toHaveLength(0);
+  });
+
+  it("signature non concordante : identifiant de transaction mal formé rejeté sans appel à SasPay", async () => {
+    const { processPaymentWebhook } = await load();
+    const { body, headers } = webhook("transaction.success", { id: "../../etc", type: "PAIEMENT" }, "mauvais-secret");
+    const res = await processPaymentWebhook("saspay", body, headers);
+    expect(res.status).toBe(200);
     expect(state.fetches).toHaveLength(0);
+    expect(state.rpc).toHaveLength(0);
   });
 });
 
