@@ -9,6 +9,8 @@ export const serverEnv = {
   saspayEnvironment: (process.env.SASPAY_ENVIRONMENT === "live" ? "live" : "sandbox") as "sandbox" | "live",
   /** Versements automatiques aux travailleurs (exige l'IP du serveur whitelistée chez SasPay). */
   saspayPayoutsEnabled: process.env.SASPAY_PAYOUTS_ENABLED === "true",
+  /** Relais de versements à IP fixe (voir relay/README.md). Vide : appel direct à SasPay. */
+  saspayPayoutRelayUrl: (process.env.SASPAY_PAYOUT_RELAY_URL ?? "").replace(/\/+$/, ""),
   fedapaySecretKey: process.env.FEDAPAY_SECRET_KEY ?? "",
   fedapayWebhookSecret: process.env.FEDAPAY_WEBHOOK_SECRET ?? "",
   fedapayEnvironment: (process.env.FEDAPAY_ENVIRONMENT ?? "sandbox") as "sandbox" | "live",

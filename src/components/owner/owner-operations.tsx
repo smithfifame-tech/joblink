@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, Loader2, Scale, Search, Send, ShieldCheck, X } from "lucide-react";
-import { recordPayoutAction, resolveDisputeAction, reviewVerificationAction } from "@/app/admin/joblink/actions";
+import { autoPayoutAction, recordPayoutAction, resolveDisputeAction, reviewVerificationAction } from "@/app/admin/joblink/actions";
 import { cn } from "@/lib/utils";
 
 type Result = { ok: boolean; error?: string };
@@ -76,15 +76,49 @@ export function TabSearch({ tab, placeholder, defaultValue, keep }: { tab: strin
 }
 
 /** Enregistrement d'un versement Mobile Money effectué au travailleur. */
-export function PayoutForm({ paymentId, amount, phone }: { paymentId: string; amount: string; phone: string | null }) {
+export function PayoutForm({ paymentId, amount, phone, auto = false }: { paymentId: string; amount: string; phone: string | null; auto?: boolean }) {
   const { pending, run } = useAct();
   const [open, setOpen] = useState(false);
+  const [confirmAuto, setConfirmAuto] = useState(false);
   const [ref, setRef] = useState("");
+  if (confirmAuto) {
+    return (
+      <div className="grid w-full animate-[pop-in_.25s_ease-out_both] gap-2 rounded-2xl border border-primary/20 bg-accent/40 p-3 sm:w-80">
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          SasPay va envoyer <strong className="text-foreground">{amount}</strong>{phone ? <> au <strong className="text-foreground">{phone}</strong></> : null} depuis votre solde. Un envoi Mobile Money ne peut pas être annulé.
+        </p>
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => autoPayoutAction(paymentId), "Versement envoyé. Le travailleur est notifié.", () => setConfirmAuto(false))}
+            className={cn(pill, "border-primary bg-primary text-white hover:bg-primary-strong")}
+          >
+            {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Confirmer le versement
+          </button>
+          <button type="button" onClick={() => setConfirmAuto(false)} className={cn(pill, "border-border bg-white text-muted-foreground")}>
+            Annuler
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={cn(pill, "border-primary bg-primary text-white hover:bg-primary-strong")}>
-        <Send className="size-3.5" /> Enregistrer le versement
-      </button>
+      <div className="flex flex-wrap gap-1.5 lg:justify-end">
+        {auto && (
+          <button type="button" onClick={() => setConfirmAuto(true)} className={cn(pill, "border-primary bg-primary text-white hover:bg-primary-strong")}>
+            <Send className="size-3.5" /> Verser automatiquement
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={cn(pill, auto ? "border-border bg-white text-muted-foreground hover:text-foreground" : "border-primary bg-primary text-white hover:bg-primary-strong")}
+        >
+          {!auto && <Send className="size-3.5" />} {auto ? "Versement manuel" : "Enregistrer le versement"}
+        </button>
+      </div>
     );
   }
   return (

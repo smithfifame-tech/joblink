@@ -5,6 +5,9 @@ import { JOBS_TAG } from "@/services/catalog";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { OWNER_PATH, ownerApi, ownerLogin, ownerLogout } from "@/lib/owner-panel/server";
+import { getAdapter } from "@/lib/payments/registry";
+import { SaspayApiError } from "@/lib/payments/adapters/saspay";
+import { serverRpc } from "@/lib/supabase/server-rpc";
 
 export type OwnerLoginState = { error?: string } | undefined;
 
@@ -112,6 +115,59 @@ export async function recordPayoutAction(paymentId: string, reference: string) {
   const parsed = z.object({ paymentId: id, reference: z.string().trim().min(3).max(120) }).safeParse({ paymentId, reference });
   if (!parsed.success) return { ok: false, error: "Indiquez la référence de la transaction Mobile Money (3 caractères minimum)." };
   return guarded(() => ownerApi.recordPayout(parsed.data.paymentId, parsed.data.reference));
+}
+
+const PAYOUT_ERRORS: Record<string, string> = {
+  ip_not_whitelisted: "SasPay refuse l'adresse IP : ajoutez l'IP du relais dans SasPay (Développeur > IP Whitelist).",
+  payout_not_enabled: "Les versements ne sont pas encore activés sur votre compte SasPay : demandez l'activation à leur support.",
+  insufficient_balance: "Solde SasPay insuffisant pour ce versement.",
+  currency_country_mismatch: "Devise et pays incompatibles pour ce versement.",
+  invalid_method: "Réseau Mobile Money non pris en charge pour ce numéro.",
+  bad_signature: "Le relais refuse la signature : la clé SasPay du relais est différente de celle de Vercel.",
+  expired: "Horloge du relais décalée : vérifiez l'heure du serveur.",
+};
+
+/**
+ * Versement automatique au travailleur (SasPay, via le relais à IP fixe), puis enregistrement de la référence.
+ * La session propriétaire est vérifiée AVANT tout mouvement d'argent ; la clé d'idempotence par paiement
+ * empêche tout double versement, même en cas de double clic.
+ */
+export async function autoPayoutAction(paymentId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!id.safeParse(paymentId).success) return { ok: false, error: "Paiement invalide." };
+  try {
+    // 1. Session propriétaire + éligibilité (paiement réussi, pas encore versé)
+    const due = await ownerApi.payments("payout", 100, 0);
+    const p = due.items.find((x) => x.id === paymentId);
+    if (!p || p.status !== "succeeded" || p.payout_status === "completed") {
+      return { ok: false, error: "Ce paiement n'est pas (ou plus) à verser." };
+    }
+    // 2. Coordonnées du travailleur
+    const { data: payee } = await serverRpc<{ first_name: string; last_name: string; email: string; phone: string | null }>("srv_payee_contact", {
+      p_payment_id: paymentId,
+    });
+    if (!payee?.phone) return { ok: false, error: "Le travailleur n'a pas de numéro Mobile Money." };
+    const adapter = getAdapter(p.provider);
+    if (!adapter.createPayout) return { ok: false, error: "Ce prestataire ne gère pas les versements automatiques." };
+    // 3. Versement
+    const result = await adapter.createPayout({
+      paymentId,
+      amount: p.net_amount,
+      recipient: { firstName: payee.first_name, lastName: payee.last_name, email: payee.email, phone: payee.phone },
+    });
+    if (!result.success) return { ok: false, error: "SasPay a refusé le versement. Réessayez plus tard ou versez manuellement." };
+    // 4. Enregistrement (notifie le travailleur)
+    await ownerApi.recordPayout(paymentId, `SasPay ${result.reference}`);
+    revalidatePath(OWNER_PATH);
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof Error && e.message === "SESSION_EXPIRED") redirect(OWNER_PATH);
+    if (e instanceof SaspayApiError) {
+      console.warn("[payout] SasPay", e.status, e.code);
+      return { ok: false, error: (e.code && PAYOUT_ERRORS[e.code]) || `Versement refusé par SasPay (${e.code ?? e.status}).` };
+    }
+    const msg = e instanceof Error ? e.message : "";
+    return { ok: false, error: msg.startsWith("Versements automatiques") || msg.startsWith("Opérateur") ? msg : "Versement impossible pour le moment." };
+  }
 }
 
 export async function resolveDisputeAction(disputeId: string, status: string, decision: string) {

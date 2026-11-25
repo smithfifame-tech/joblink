@@ -1,5 +1,6 @@
 import "server-only";
 import { serverEnv } from "@/lib/env.server";
+import { createHmac } from "node:crypto";
 import { verifyTimestampedSignature } from "../signature";
 import { WebhookSignatureError, type PaymentAdapter, type WebhookOutcome } from "../types";
 
@@ -64,6 +65,38 @@ async function call<T>(method: "GET" | "POST", path: string, body?: unknown, ide
     throw new SaspayApiError(res.status, code, message);
   }
   return (json.success === true && json.data && typeof json.data === "object" ? json.data : json) as T;
+}
+
+/**
+ * Appel signé au relais de versements (relay/server.mjs) : HMAC-SHA256 avec la clé SasPay,
+ * sur `${horodatage}.${méthode} ${chemin}\n${corps}`. Le relais vérifie la signature, l'âge et l'unicité.
+ */
+async function relayCall<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  if (!saspayKeyMatchesEnv()) throw new Error("Clé SasPay absente ou incohérente avec SASPAY_ENVIRONMENT");
+  const raw = body === undefined ? "" : JSON.stringify(body);
+  const ts = Math.floor(Date.now() / 1000);
+  const signature = createHmac("sha256", serverEnv.saspaySecretKey).update(`${ts}.${method} ${path}\n${raw}`).digest("hex");
+  const res = await fetch(`${serverEnv.saspayPayoutRelayUrl}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", Accept: "application/json", "X-Relay-Timestamp": String(ts), "X-Relay-Signature": signature },
+    body: body === undefined ? undefined : raw,
+    cache: "no-store",
+    signal: AbortSignal.timeout(25000),
+  });
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok || json.success === false) {
+    const err = (json.error && typeof json.error === "object" ? json.error : json) as Record<string, unknown>;
+    const code = typeof err.code === "string" ? err.code : typeof json.error === "string" ? json.error : null;
+    const message = typeof err.message === "string" ? err.message : JSON.stringify(json).slice(0, 300);
+    throw new SaspayApiError(res.status, code, message);
+  }
+  return (json.success === true && json.data && typeof json.data === "object" ? json.data : json) as T;
+}
+
+/** Versements automatiques réellement utilisables (activés + relais ou appel direct). */
+export function saspayAutoPayoutAvailable(): boolean {
+  // Sur Vercel (IP variable), les versements passent obligatoirement par le relais à IP fixe.
+  return serverEnv.paymentProvider === "saspay" && serverEnv.saspayPayoutsEnabled && saspayKeyMatchesEnv() && Boolean(serverEnv.saspayPayoutRelayUrl);
 }
 
 /** XOF : entier en base → « 10000.00 ». */
@@ -227,23 +260,32 @@ export const saspayAdapter: PaymentAdapter = {
       throw new Error("Opérateur Mobile Money du travailleur non déterminé : versez manuellement puis enregistrez la référence.");
     }
     const phone = normalizeBeninPhone(req.recipient.phone);
-    // Clé stable par paiement : un double clic ou une relance réseau ne crée jamais un second versement.
-    const created = await call<{ id: string }>(
-      "POST",
-      "/payouts/initialize/",
-      {
-        amount: toDecimalString(req.amount),
-        currency: "XOF",
-        country,
-        method,
-        recipient: { msisdn: phone.replace(/^\+/, "") },
-        customer: { email: req.recipient.email, first_name: req.recipient.firstName, last_name: req.recipient.lastName, phone },
-        description: `JOBLINK — versement mission ${req.paymentId.slice(0, 8)}`,
-        metadata: { payment_id: req.paymentId, source: "joblink" },
-      },
-      `joblink-payout-${req.paymentId}`,
-    );
-    const verified = await call<{ status?: string }>("GET", `/payouts/${encodeURIComponent(created.id)}/verify/`).catch(() => ({ status: "PENDING" }));
+    const body = {
+      paymentId: req.paymentId,
+      amount: toDecimalString(req.amount),
+      currency: "XOF",
+      country,
+      method,
+      recipient: { msisdn: phone.replace(/^\+/, "") },
+      customer: { email: req.recipient.email, first_name: req.recipient.firstName, last_name: req.recipient.lastName, phone },
+      description: `JOBLINK — versement mission ${req.paymentId.slice(0, 8)}`,
+    };
+
+    // Via le relais à IP fixe (cas Vercel) ou directement si le serveur a lui-même une IP déclarée chez SasPay.
+    const created = serverEnv.saspayPayoutRelayUrl
+      ? await relayCall<{ id: string }>("POST", "/v1/payouts", body)
+      : await call<{ id: string }>(
+          "POST",
+          "/payouts/initialize/",
+          { ...body, paymentId: undefined, metadata: { payment_id: req.paymentId, source: "joblink" } },
+          // Clé stable par paiement : un double clic ou une relance réseau ne crée jamais un second versement.
+          `joblink-payout-${req.paymentId}`,
+        );
+    if (!created?.id) throw new Error("Réponse SasPay incomplète (identifiant du versement)");
+    const verified = await (serverEnv.saspayPayoutRelayUrl
+      ? relayCall<{ status?: string }>("GET", `/v1/payouts/${created.id}`)
+      : call<{ status?: string }>("GET", `/payouts/${encodeURIComponent(created.id)}/verify/`)
+    ).catch(() => ({ status: "PENDING" }));
     return { reference: created.id, success: verified.status !== "FAILED" };
   },
 };

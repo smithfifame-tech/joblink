@@ -37,6 +37,8 @@ export type OwnerTab = "overview" | "users" | "jobs" | "payments" | "cases" | "m
 export type OwnerHealth = {
   payments: "off" | "sandbox" | "fedapay_test" | "saspay_test" | "live";
   paymentProvider?: string;
+  /** Versements automatiques au travailleur disponibles (SasPay + relais à IP fixe). */
+  autoPayout?: boolean;
   google: boolean;
   emailConfirm: boolean | null;
   production: boolean;
@@ -979,7 +981,7 @@ const PAYMENT_TABS: { key: OwnerPaymentFilter; label: string; count: keyof Owner
   { key: "refunded", label: "Remboursés", count: "refunded" },
 ];
 
-function PaymentsTab({ payments, filter, page, commissionRate }: { payments: OwnerPayments | null; filter: OwnerPaymentFilter; page: number; commissionRate: number }) {
+function PaymentsTab({ payments, filter, page, commissionRate, autoPayout = false }: { payments: OwnerPayments | null; filter: OwnerPaymentFilter; page: number; commissionRate: number; autoPayout?: boolean }) {
   if (!payments) return <Card><Empty>Les paiements sont momentanément indisponibles.</Empty></Card>;
   const s = payments.summary;
   return (
@@ -1055,7 +1057,7 @@ function PaymentsTab({ payments, filter, page, commissionRate }: { payments: Own
                     <div><dt className="text-muted-foreground">Commission</dt><dd className="font-bold tabular-nums text-primary-strong">{formatXOF(p.commission_amount)}</dd></div>
                     <div><dt className="text-muted-foreground">Net travailleur</dt><dd className="font-bold tabular-nums">{formatXOF(p.net_amount)}</dd></div>
                   </dl>
-                  <div className="lg:justify-self-end">{due && <PayoutForm paymentId={p.id} amount={formatXOF(p.net_amount)} phone={p.payee_phone} />}</div>
+                  <div className="lg:justify-self-end">{due && <PayoutForm paymentId={p.id} amount={formatXOF(p.net_amount)} phone={p.payee_phone} auto={autoPayout && p.provider === "saspay"} />}</div>
                 </li>
               );
             })}
@@ -1405,7 +1407,7 @@ export function OwnerDashboard(props: {
       ) : tab === "jobs" ? (
         <JobsTab jobs={props.jobs} q={q} status={props.jobStatus} page={page} watch={props.watch} />
       ) : tab === "payments" ? (
-        <PaymentsTab payments={props.payments} filter={props.paymentFilter} page={page} commissionRate={props.settings.commission} />
+        <PaymentsTab payments={props.payments} filter={props.paymentFilter} page={page} commissionRate={props.settings.commission} autoPayout={props.health.autoPayout} />
       ) : tab === "cases" ? (
         <CasesTab disputes={props.disputes} verifications={props.verifications} docs={props.documentLinks} showAll={props.showAllDisputes} />
       ) : tab === "moderation" ? (

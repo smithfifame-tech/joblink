@@ -6,6 +6,7 @@ import { getAuthProviders } from "@/lib/auth/providers";
 import { isPaymentConfigured } from "@/lib/payments/registry";
 import { isProduction, serverEnv } from "@/lib/env.server";
 import { getCommissionRates } from "@/services/catalog";
+import { saspayAutoPayoutAvailable } from "@/lib/payments/adapters/saspay";
 import { jobAlerts } from "@/lib/owner-panel/review";
 
 const TABS: OwnerTab[] = ["overview", "users", "jobs", "payments", "cases", "moderation", "incidents", "site", "security"];
@@ -68,6 +69,7 @@ export default async function OwnerPanelPage({ searchParams }: { searchParams: S
           ? serverEnv.saspayEnvironment === "live" ? "live" : "saspay_test"
           : "sandbox",
     paymentProvider: serverEnv.paymentProvider,
+    autoPayout: saspayAutoPayoutAvailable(),
     google: providers.google,
     emailConfirm: providers.emailConfirm,
     production: isProduction(),
