@@ -232,3 +232,22 @@ export const saspayAdapter: PaymentAdapter = {
     return { reference: created.id, success: verified.status !== "FAILED" };
   },
 };
+
+/**
+ * Contrôle de connexion (utilisé par /api/health) : appel authentifié en lecture seule (`GET /networks/`),
+ * sans aucun mouvement d'argent. Résultat mis en cache 10 minutes pour ménager la limite de 300 requêtes/min.
+ * Ne renvoie jamais la clé ni un message brut de SasPay.
+ */
+let pingCache: { at: number; value: "ok" | "cle_refusee" | "injoignable" } | null = null;
+export async function saspayPing(): Promise<"ok" | "cle_refusee" | "injoignable"> {
+  if (pingCache && Date.now() - pingCache.at < 10 * 60 * 1000) return pingCache.value;
+  let value: "ok" | "cle_refusee" | "injoignable";
+  try {
+    await call("GET", "/networks/?page_size=1");
+    value = "ok";
+  } catch (e) {
+    value = e instanceof SaspayApiError && (e.status === 401 || e.status === 403) ? "cle_refusee" : "injoignable";
+  }
+  pingCache = { at: Date.now(), value };
+  return value;
+}
