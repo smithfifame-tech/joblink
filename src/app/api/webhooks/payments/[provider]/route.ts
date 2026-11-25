@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Webhook des prestataires de paiement : /api/webhooks/payments/fedapay (ou /sandbox).
+ * Webhook des prestataires de paiement : /api/webhooks/payments/saspay (ou /fedapay, /sandbox).
  * Le corps BRUT est lu pour vérifier la signature HMAC avant tout traitement.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ provider: string }> }) {

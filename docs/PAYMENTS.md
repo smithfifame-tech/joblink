@@ -31,8 +31,36 @@ Exemple     : 10 000 FCFA → 500 de commission → 9 500 FCFA nets avant frais 
 `src/lib/payments/types.ts` définit l'interface : `createCheckout`, `parseWebhook` (vérifie la signature), `fetchStatus`, `createPayout`. Ajouter un prestataire = un fichier dans `src/lib/payments/adapters/` + une ligne dans `registry.ts`. Le reste de l'application ne change pas.
 
 - `sandbox` : simulateur `/payments/sandbox/[id]` qui émet un vrai webhook signé (même chaîne de traitement).
+- `saspay` : [SasPay](https://docs.saspay.me) — API unique couvrant **MTN MoMo**, **Moov Money** et **Celtiis Cash** au Bénin (et le Togo, le Niger, le Burkina Faso, le Nigeria…). **Prestataire recommandé.**
 - `fedapay` : [FedaPay](https://docs.fedapay.com) — agrégateur béninois couvrant **MTN Mobile Money**, **Moov Money** et cartes.
 - `kkiapay` : à implémenter si choisi (même interface).
+
+## Mise en service avec SasPay
+Le client est redirigé vers la page de paiement hébergée par SasPay (`POST /checkout-sessions/`) : il y choisit MTN, Moov ou Celtiis et valide sur son téléphone. Aucune donnée de paiement ne passe par JOBLINK.
+
+1. Créez le compte sur [app.saspay.me](https://app.saspay.me), vérifiez l'e-mail, complétez le KYC et créez le marchand.
+2. *Développeur* → générez une clé **`sk_test_…`** (scope `PAYIN` ou `BOTH`). La clé `sk_live_…` viendra après les tests.
+3. *Webhooks* → nouveau point de réception :
+   - URL : `https://joblink-benin.vercel.app/api/webhooks/payments/saspay`
+   - événements : `transaction.success` (et `transaction.failed`, facultatif)
+   - **copiez le `signing_secret` tout de suite** : SasPay ne l'affiche qu'une fois.
+4. Vercel → *Settings → Environment Variables* (Production), puis redéployez :
+   | Variable | Valeur |
+   |---|---|
+   | `PAYMENT_PROVIDER` | `saspay` |
+   | `SASPAY_ENVIRONMENT` | `sandbox` (tests) puis `live` |
+   | `SASPAY_SECRET_KEY` | `sk_test_…` puis `sk_live_…` |
+   | `SASPAY_WEBHOOK_SECRET` | le `signing_secret` du webhook |
+   | `SASPAY_PAYOUTS_ENABLED` | `false` (voir *Versements* ci-dessous) |
+5. `/admin/joblink` → *Paiements Mobile Money* doit afficher « SasPay en mode test ». Sinon, la clé ne correspond pas à l'environnement.
+6. Testez une mission complète (numéros de test SasPay : dernier chiffre `0` = succès, `2` = solde insuffisant, `9` = reste en attente). Depuis le tableau de bord SasPay, envoyez aussi l'événement `webhook.test` : il doit apparaître comme reçu et ignoré.
+7. Passez en réel : `SASPAY_ENVIRONMENT=live` **et** `SASPAY_SECRET_KEY=sk_live_…` (et le secret du webhook *live*), puis un premier paiement de faible montant (minimum 200 FCFA).
+
+**Garde-fou clé ↔ environnement.** Chez SasPay, l'environnement dépend de l'hôte appelé, pas de la clé : une requête envoyée à `api.saspay.me` est réelle même avec une clé de test. JOBLINK refuse donc d'activer le paiement si la clé ne commence pas par `sk_test_` en `sandbox` ou par `sk_live_` en `live`.
+
+**Rapprochement.** Le webhook SasPay décrit la *transaction*, pas la session. JOBLINK vérifie la signature (`X-Webhook-Signature`, HMAC-SHA256 de `horodatage.corps`, 5 min de tolérance), relit la transaction par l'API authentifiée (`GET /payments/{id}/verify/`), exige `SUCCESS` en XOF, puis retrouve le paiement grâce à la référence `JL:<identifiant>` placée dans la description de la session. Les frais réels (montant demandé − montant net) remplacent l'estimation. Une tentative échouée ne fait pas échouer le paiement : le client peut réessayer sur la même page. La session expire au bout de 24 h ; au retour du client, la vérification `GET /checkout-sessions/{id}/status/` fait échouer un paiement expiré ou annulé pour permettre une nouvelle tentative.
+
+**Versements aux travailleurs.** `POST /payouts/initialize/` exige que l'**adresse IP du serveur soit whitelistée** chez SasPay. Sur Vercel, les fonctions n'ont pas d'IP fixe (sauf option *Static IPs*). Par défaut (`SASPAY_PAYOUTS_ENABLED=false`), versez depuis le tableau de bord SasPay puis enregistrez la référence dans l'admin (« versement manuel »). Si vous disposez d'une IP fixe whitelistée, `SASPAY_PAYOUTS_ENABLED=true` active le versement automatique : opérateur déduit du préfixe (MTN, Moov, Celtiis ; préfixe incertain → versement manuel), clé d'idempotence unique par paiement pour empêcher tout double versement.
 
 ## Mise en production avec FedaPay
 1. Ouvrez un compte marchand FedaPay et complétez la vérification (KYC entreprise). Demandez l'activation des **reversements (payouts)**.

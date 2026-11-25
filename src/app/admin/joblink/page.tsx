@@ -64,7 +64,10 @@ export default async function OwnerPanelPage({ searchParams }: { searchParams: S
       ? "off"
       : serverEnv.paymentProvider === "fedapay"
         ? serverEnv.fedapayEnvironment === "live" ? "live" : "fedapay_test"
-        : "sandbox",
+        : serverEnv.paymentProvider === "saspay"
+          ? serverEnv.saspayEnvironment === "live" ? "live" : "saspay_test"
+          : "sandbox",
+    paymentProvider: serverEnv.paymentProvider,
     google: providers.google,
     emailConfirm: providers.emailConfirm,
     production: isProduction(),

@@ -3,7 +3,12 @@ import "server-only";
 export const serverEnv = {
   serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   appEnv: (process.env.APP_ENV ?? "development") as "development" | "staging" | "production",
-  paymentProvider: (process.env.PAYMENT_PROVIDER ?? "sandbox") as "sandbox" | "fedapay" | "kkiapay",
+  paymentProvider: (process.env.PAYMENT_PROVIDER ?? "sandbox") as "sandbox" | "fedapay" | "saspay" | "kkiapay",
+  saspaySecretKey: process.env.SASPAY_SECRET_KEY ?? "",
+  saspayWebhookSecret: process.env.SASPAY_WEBHOOK_SECRET ?? "",
+  saspayEnvironment: (process.env.SASPAY_ENVIRONMENT === "live" ? "live" : "sandbox") as "sandbox" | "live",
+  /** Versements automatiques aux travailleurs (exige l'IP du serveur whitelistée chez SasPay). */
+  saspayPayoutsEnabled: process.env.SASPAY_PAYOUTS_ENABLED === "true",
   fedapaySecretKey: process.env.FEDAPAY_SECRET_KEY ?? "",
   fedapayWebhookSecret: process.env.FEDAPAY_WEBHOOK_SECRET ?? "",
   fedapayEnvironment: (process.env.FEDAPAY_ENVIRONMENT ?? "sandbox") as "sandbox" | "live",

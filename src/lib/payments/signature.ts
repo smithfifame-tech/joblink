@@ -44,3 +44,32 @@ export function verifySignature(
   if (Math.abs(now - timestamp) > tolerance) return { valid: false, reason: "expired" };
   return { valid: true };
 }
+
+/**
+ * Format SasPay (https://docs.saspay.me/api-reference/webhooks) : deux en-têtes distincts,
+ * `X-Webhook-Timestamp` (secondes Unix) et `X-Webhook-Signature` (HMAC-SHA256 hex minuscule)
+ * calculé sur `${timestamp}.${corps_brut}`. Même tolérance de 5 minutes, comparaison en temps constant.
+ */
+export function verifyTimestampedSignature(
+  rawBody: string,
+  signatureHeader: string | null | undefined,
+  timestampHeader: string | null | undefined,
+  secret: string,
+  opts: { tolerance?: number; now?: number } = {},
+): { valid: true } | { valid: false; reason: string } {
+  if (!secret) return { valid: false, reason: "missing_secret" };
+  if (!signatureHeader || !timestampHeader) return { valid: false, reason: "missing_header" };
+  if (!/^\d{1,12}$/.test(timestampHeader.trim())) return { valid: false, reason: "bad_timestamp" };
+  const timestamp = Number.parseInt(timestampHeader.trim(), 10);
+  const expected = computeSignature(`${timestamp}.${rawBody}`, secret);
+  if (!safeEqualHex(signatureHeader.trim().toLowerCase(), expected)) return { valid: false, reason: "mismatch" };
+  const now = opts.now ?? Math.floor(Date.now() / 1000);
+  const tolerance = opts.tolerance ?? SIGNATURE_TOLERANCE_SECONDS;
+  if (Math.abs(now - timestamp) > tolerance) return { valid: false, reason: "expired" };
+  return { valid: true };
+}
+
+/** Produit les en-têtes d'un webhook au format SasPay (tests). */
+export function signTimestampedPayload(rawBody: string, secret: string, timestamp = Math.floor(Date.now() / 1000)) {
+  return { timestamp: String(timestamp), signature: computeSignature(`${timestamp}.${rawBody}`, secret) };
+}

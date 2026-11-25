@@ -43,7 +43,7 @@ src/app/admin          administration (rôle admin vérifié en base)
 src/app/(shared)       messagerie temps réel, notifications
 src/app/api            recherche publique, webhooks de paiement signés, cron de purge
 src/lib/actions        Server Actions (validation Zod → fonctions SQL sécurisées)
-src/lib/payments       Payment Adapter (sandbox, FedaPay) + signature HMAC
+src/lib/payments       Payment Adapter (sandbox, SasPay, FedaPay) + signature HMAC
 supabase/migrations    schéma (31 tables), fonctions métier, RLS, Storage, Realtime
 tests/sql|unit|integration|e2e
 ```
@@ -53,7 +53,7 @@ Principe clé : **toute transition sensible** (candidature, acceptation, démarr
 ## Documentation
 
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — Supabase Cloud, Vercel, domaine, e-mails, sauvegardes, maintenance
-- [docs/PAYMENTS.md](docs/PAYMENTS.md) — architecture de paiement, FedaPay, webhooks, conformité
+- [docs/PAYMENTS.md](docs/PAYMENTS.md) — architecture de paiement, SasPay, FedaPay, webhooks, conformité
 - [docs/SECURITY.md](docs/SECURITY.md) — modèle de sécurité et contrôles
 - [docs/TESTING.md](docs/TESTING.md) — stratégie et exécution des tests
 - [docs/DATABASE.md](docs/DATABASE.md) — schéma, statuts, fonctions

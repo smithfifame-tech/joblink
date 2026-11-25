@@ -35,7 +35,8 @@ export type OwnerTab = "overview" | "users" | "jobs" | "payments" | "cases" | "m
 
 /** Statuts de mise en service (calculés côté serveur, sans aucune valeur secrète). */
 export type OwnerHealth = {
-  payments: "off" | "sandbox" | "fedapay_test" | "live";
+  payments: "off" | "sandbox" | "fedapay_test" | "saspay_test" | "live";
+  paymentProvider?: string;
   google: boolean;
   emailConfirm: boolean | null;
   production: boolean;
@@ -320,8 +321,19 @@ function LaunchChecklist({ health }: { health: OwnerHealth }) {
       icon: CreditCard,
       label: "Paiements Mobile Money",
       ok: health.payments === "live",
-      status: { off: "Non configurés", sandbox: "Mode test (simulateur)", fedapay_test: "FedaPay en mode test", live: "FedaPay actif" }[health.payments],
-      hint: health.payments === "live" ? undefined : "Créez votre compte marchand FedaPay et ajoutez les clés dans Vercel.",
+      status: {
+        off: "Non configurés",
+        sandbox: "Mode test (simulateur)",
+        fedapay_test: "FedaPay en mode test",
+        saspay_test: "SasPay en mode test",
+        live: health.paymentProvider === "saspay" ? "SasPay actif" : "FedaPay actif",
+      }[health.payments],
+      hint:
+        health.payments === "live"
+          ? undefined
+          : health.paymentProvider === "saspay"
+            ? "Passez SASPAY_ENVIRONMENT=live avec une clé sk_live_ dans Vercel."
+            : "Créez votre compte marchand (SasPay ou FedaPay) et ajoutez les clés dans Vercel.",
     },
     {
       icon: Globe,

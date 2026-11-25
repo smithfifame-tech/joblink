@@ -23,7 +23,7 @@ const csp = [
   "frame-src 'none'",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
-  "form-action 'self' https://*.fedapay.com",
+  "form-action 'self' https://*.fedapay.com https://*.saspay.me",
   "base-uri 'self'",
   "object-src 'none'",
   isDev ? "" : "upgrade-insecure-requests",

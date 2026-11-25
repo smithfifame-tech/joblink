@@ -51,8 +51,9 @@ La fonction n'est exécutable que par le propriétaire de la base / `service_rol
 Vercel → *Settings → Domains* → ajoutez `votre-domaine.bj` et `www.votre-domaine.bj`, configurez les DNS indiqués (A / CNAME). HTTPS est automatique. Mettez ensuite à jour `NEXT_PUBLIC_SITE_URL`, la *Site URL* et les *Redirect URLs* Supabase.
 
 ## 4. Paiements et webhooks
-Voir [PAYMENTS.md](PAYMENTS.md). URL de webhook à déclarer chez FedaPay :
-`https://votre-domaine.bj/api/webhooks/payments/fedapay`
+Voir [PAYMENTS.md](PAYMENTS.md). URL de webhook à déclarer chez le prestataire :
+- SasPay : `https://votre-domaine.bj/api/webhooks/payments/saspay`
+- FedaPay : `https://votre-domaine.bj/api/webhooks/payments/fedapay`
 
 ## 5. Sauvegardes
 - **Supabase Pro** : sauvegardes quotidiennes automatiques (7 jours) ; activez le *Point-in-Time Recovery* pour une reprise à la seconde.
