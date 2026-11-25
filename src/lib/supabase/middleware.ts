@@ -35,6 +35,16 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
+  // Pages publiques (accueil, missions, carte, FAQ…) : aucun contrôle de session côté serveur.
+  // On évite un aller-retour vers Supabase Auth et l'écriture de cookies, ce qui permet au CDN
+  // de servir ces pages en cache. L'en-tête détecte la connexion côté navigateur, et la session
+  // est rafraîchie dès qu'on visite un espace privé (ou par le client Supabase du navigateur).
+  const needsSession = isProtectedPath(pathname) || AUTH_PAGES.includes(pathname) || pathname.startsWith("/api/") || pathname.startsWith("/auth/");
+  if (!needsSession) {
+    if (isOwnerPanelPath(pathname)) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
+
   const sessionOnly = request.cookies.get(SESSION_ONLY_COOKIE)?.value === "1";
   const supabase = createServerClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
     cookies: {

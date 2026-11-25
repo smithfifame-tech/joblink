@@ -3,6 +3,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabasePublicClient } from "@/lib/supabase/public";
 import { isSupabaseConfigured, publicEnv } from "@/lib/env";
 import { DEFAULT_COMMISSION_RATE, formatRate } from "@/lib/payments/commission";
 import type { Category, JobSearchRow, PublicJob } from "@/types/db";
@@ -10,14 +11,26 @@ import type { JobSearchParams } from "@/lib/validations/jobs";
 
 export const PAGE_SIZE = 12;
 
-/** Catégories actives (lecture publique). */
-export const getCategories = cache(async (): Promise<Category[]> => {
-  if (!isSupabaseConfigured()) return [];
-  const supabase = await getSupabaseServerClient();
-  const { data, error } = await supabase.from("categories").select("*").eq("is_active", true).order("sort_order");
-  if (error) throw error;
-  return (data ?? []) as Category[];
-});
+/**
+ * Étiquettes de cache des données publiques. Invalidées par les actions qui les modifient
+ * (publication / annulation de mission → JOBS_TAG ; édition des catégories → CATEGORIES_TAG).
+ */
+export const JOBS_TAG = "public-jobs";
+export const CATEGORIES_TAG = "categories";
+export const REVIEWS_TAG = "public-reviews";
+
+/** Catégories actives (lecture publique, sans cookies, cache 10 min). */
+const readCategories = unstable_cache(
+  async (): Promise<Category[]> => {
+    if (!isSupabaseConfigured()) return [];
+    const { data, error } = await getSupabasePublicClient().from("categories").select("*").eq("is_active", true).order("sort_order");
+    if (error) throw error;
+    return (data ?? []) as Category[];
+  },
+  ["categories-v1"],
+  { revalidate: 600, tags: [CATEGORIES_TAG] },
+);
+export const getCategories = cache(async (): Promise<Category[]> => readCategories());
 
 export async function getPlatformSetting<T>(key: string, fallback: T): Promise<T> {
   if (!isSupabaseConfigured()) return fallback;
@@ -66,10 +79,24 @@ export async function getCommissionLabel(): Promise<string> {
   return formatRate((await getCommissionRates()).commission);
 }
 
-/** Recherche de missions ouvertes via la fonction PostGIS search_jobs. */
+/**
+ * Recherche de missions ouvertes via la fonction PostGIS search_jobs (données publiques).
+ * Client anonyme + cache de 30 s par jeu de paramètres : une même recherche n'interroge la base
+ * qu'une fois toutes les 30 s, et une publication de mission invalide immédiatement le cache.
+ */
 export async function searchJobs(params: JobSearchParams, pageSize = PAGE_SIZE): Promise<{ rows: JobSearchRow[]; total: number }> {
   if (!isSupabaseConfigured()) return { rows: [], total: 0 };
-  const supabase = await getSupabaseServerClient();
+  return cachedSearch(JSON.stringify(params), pageSize);
+}
+
+const cachedSearch = unstable_cache(
+  async (key: string, pageSize: number) => runSearch(JSON.parse(key) as JobSearchParams, pageSize),
+  ["search-jobs-v1"],
+  { revalidate: 30, tags: [JOBS_TAG] },
+);
+
+async function runSearch(params: JobSearchParams, pageSize: number): Promise<{ rows: JobSearchRow[]; total: number }> {
+  const supabase = getSupabasePublicClient();
   const page = params.page ?? 1;
   const hasGeo = params.lat !== undefined && params.lng !== undefined;
   const { data, error } = await supabase.rpc("search_jobs", {
@@ -108,18 +135,28 @@ export async function getPublicJob(id: string): Promise<PublicJob | null> {
   return (data as PublicJob) ?? null;
 }
 
-export async function getPublicStats(): Promise<{ open_jobs: number; workers: number; completed_jobs: number } | null> {
-  if (!isSupabaseConfigured()) return null;
-  const supabase = await getSupabaseServerClient();
-  const { data } = await supabase.rpc("public_stats");
-  return (data as { open_jobs: number; workers: number; completed_jobs: number }) ?? null;
-}
+export const getPublicStats = unstable_cache(
+  async (): Promise<{ open_jobs: number; workers: number; completed_jobs: number } | null> => {
+    if (!isSupabaseConfigured()) return null;
+    const { data } = await getSupabasePublicClient().rpc("public_stats");
+    return (data as { open_jobs: number; workers: number; completed_jobs: number }) ?? null;
+  },
+  ["public-stats-v1"],
+  { revalidate: 120, tags: [JOBS_TAG] },
+);
 
-export async function getCategoryCounts(): Promise<Record<string, number>> {
-  if (!isSupabaseConfigured()) return {};
-  const supabase = await getSupabaseServerClient();
-  const { data } = await supabase.from("public_jobs").select("category_slug").in("status", ["published", "reviewing"]).limit(2000);
-  const counts: Record<string, number> = {};
-  for (const r of (data ?? []) as { category_slug: string }[]) counts[r.category_slug] = (counts[r.category_slug] ?? 0) + 1;
-  return counts;
-}
+export const getCategoryCounts = unstable_cache(
+  async (): Promise<Record<string, number>> => {
+    if (!isSupabaseConfigured()) return {};
+    const { data } = await getSupabasePublicClient()
+      .from("public_jobs")
+      .select("category_slug")
+      .in("status", ["published", "reviewing"])
+      .limit(2000);
+    const counts: Record<string, number> = {};
+    for (const r of (data ?? []) as { category_slug: string }[]) counts[r.category_slug] = (counts[r.category_slug] ?? 0) + 1;
+    return counts;
+  },
+  ["category-counts-v1"],
+  { revalidate: 120, tags: [JOBS_TAG] },
+);

@@ -167,3 +167,14 @@
 @keyframes chart-reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes watermark-in { from { opacity: 0; scale: .92; } to { scale: 1; } }
+
+/* Résultats de recherche : estompés pendant la mise à jour instantanée des filtres */
+.jl-results { transition: opacity 200ms ease, filter 200ms ease; }
+.jl-results[data-loading="true"] { opacity: .55; filter: saturate(.7); pointer-events: none; }
+
+/* Bouton « nouvelles missions » en direct */
+@keyframes jl-live-in { from { opacity: 0; transform: translateY(-12px) scale(.96); } to { opacity: 1; transform: none; } }
+.jl-live-pill { animation: jl-live-in 420ms cubic-bezier(.2, .9, .3, 1.2) both; }
+@media (prefers-reduced-motion: reduce) {
+  .jl-results, .jl-live-pill { transition: none; animation: none; }
+}

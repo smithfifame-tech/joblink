@@ -1,20 +1,29 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabasePublicClient } from "@/lib/supabase/public";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { Review } from "@/types/db";
 
 export async function getProfilesMap(ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length || !isSupabaseConfigured()) return new Map<string, { first_name: string; last_initial: string; avatar_url: string | null }>();
-  const supabase = await getSupabaseServerClient();
+  // public_profiles est une vue publique : pas besoin de la session
+  const supabase = getSupabasePublicClient();
   const { data } = await supabase.from("public_profiles").select("id, first_name, last_initial, avatar_url").in("id", unique);
   return new Map((data ?? []).map((p) => [p.id as string, p as { first_name: string; last_initial: string; avatar_url: string | null }]));
 }
 
-/** Avis réels (missions terminées), notés 4+ avec commentaire. Aucun témoignage fictif. */
-export async function getFeaturedReviews(limit = 3): Promise<(Review & { reviewer_name: string })[]> {
+/** Avis réels (missions terminées), notés 4+ avec commentaire. Aucun témoignage fictif. Cache 10 min. */
+export const getFeaturedReviews = unstable_cache(
+  async (limit = 3) => readFeaturedReviews(limit),
+  ["featured-reviews-v1"],
+  { revalidate: 600, tags: ["public-reviews"] },
+);
+
+async function readFeaturedReviews(limit: number): Promise<(Review & { reviewer_name: string })[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = await getSupabaseServerClient();
+  const supabase = getSupabasePublicClient();
   const { data } = await supabase
     .from("reviews")
     .select("*")

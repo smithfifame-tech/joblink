@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/jobs/search-bar";
 import { JobCard } from "@/components/jobs/job-card";
 import { PublishPromptCard } from "@/components/jobs/publish-prompt-card";
+import { LiveJobsNotice } from "@/components/jobs/live-jobs-notice";
 import { NearbyWorkers } from "@/components/jobs/nearby-workers";
 import { CategoryIcon } from "@/components/layout/category-icon";
 import { CityDatalist } from "@/components/layout/city-datalist";
@@ -95,6 +96,7 @@ export default async function HomePage() {
     getCommissionRates(),
   ]);
   const rateLabel = formatRate(rates.commission);
+  const newestJob = jobs.reduce<string | null>((m, j) => (!m || j.created_at > m ? j.created_at : m), null);
   const example = computeBreakdown(10000, rates.commission);
 
   return (
@@ -262,6 +264,7 @@ export default async function HomePage() {
       </section>
 
       {/* ───────────── MISSIONS RÉCENTES ───────────── */}
+      <LiveJobsNotice newestCreatedAt={newestJob} />
       <section className="px-2 sm:px-4" aria-labelledby="recent-title">
         <div className="mx-auto max-w-[88rem] rounded-[2rem] bg-[#f5f7f6] py-16 sm:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">

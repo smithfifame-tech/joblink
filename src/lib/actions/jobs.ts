@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { JOBS_TAG } from "@/services/catalog";
 import { z } from "zod";
 import { jobSchema } from "@/lib/validations/jobs";
 import { toEwkt } from "@/lib/maps/places";
@@ -44,6 +45,7 @@ export async function createJobAction(input: unknown): Promise<ActionResult<{ id
       .select("id")
       .single();
     if (error) return fail(error);
+    revalidateTag(JOBS_TAG);
     revalidatePath("/jobs");
     revalidatePath("/");
     return { ok: true, data: { id: data.id as string } };
@@ -67,6 +69,7 @@ export async function updateJobAction(jobId: string, input: unknown): Promise<Ac
       const { error: pErr } = await supabase.rpc("publish_job", { p_job_id: jobId });
       if (pErr) return fail(pErr);
     }
+    revalidateTag(JOBS_TAG);
     revalidatePath(`/jobs/${jobId}`);
     revalidatePath(`/client/jobs/${jobId}`);
     return { ok: true, data: { id: jobId }, message: "Mission mise à jour." };
@@ -110,6 +113,7 @@ export async function addJobImagesAction(jobId: string, paths: string[]): Promis
     const rows = parsed.data.map((p, i) => ({ job_id: jobId, storage_path: p, sort_order: (count ?? 0) + i }));
     const { error } = await supabase.from("job_images").insert(rows);
     if (error) return fail(error);
+    revalidateTag(JOBS_TAG);
     revalidatePath(`/jobs/${jobId}`);
     return { ok: true, data: undefined };
   } catch (e) {
@@ -124,6 +128,7 @@ export async function removeJobImageAction(imageId: string, jobId: string): Prom
     const { error } = await supabase.from("job_images").delete().eq("id", imageId);
     if (error) return fail(error);
     if (data?.storage_path) await supabase.storage.from("job-images").remove([data.storage_path as string]);
+    revalidateTag(JOBS_TAG);
     revalidatePath(`/jobs/${jobId}`);
     return { ok: true, data: undefined };
   } catch (e) {

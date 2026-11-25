@@ -29,7 +29,7 @@ export default async function WorkerJobsPage({ searchParams }: { searchParams: P
       />
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
         <JobFilters categories={categories} params={params} action="/worker/jobs" />
-        <div>
+        <div data-jl-results className="jl-results">
           {rows.length === 0 ? <EmptyState icon={SearchX} title="Aucune mission" description="Modifiez vos filtres ou élargissez le rayon." /> : (
             <div className="grid gap-5 sm:grid-cols-2">{rows.map((j) => <JobCard key={j.id} job={j} />)}</div>
           )}

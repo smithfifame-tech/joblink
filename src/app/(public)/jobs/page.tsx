@@ -5,6 +5,7 @@ import { Map, SearchX } from "lucide-react";
 import { JobCard } from "@/components/jobs/job-card";
 import { PublishPromptCard } from "@/components/jobs/publish-prompt-card";
 import { JobFilters } from "@/components/jobs/job-filters";
+import { LiveJobsNotice } from "@/components/jobs/live-jobs-notice";
 import { NearMeButton } from "@/components/jobs/near-me-button";
 import { CityDatalist } from "@/components/layout/city-datalist";
 import { ConfigNotice } from "@/components/layout/config-notice";
@@ -34,10 +35,14 @@ export default async function JobsPage({ searchParams }: { searchParams: SP }) {
   ]);
   const page = params.page ?? 1;
   const category = categories.find((c) => c.slug === params.category);
+  // Missions en direct : seulement sur la liste par défaut (plus récentes, page 1)
+  const isLiveList = page === 1 && (params.sort ?? "recent") === "recent" && params.lat === undefined;
+  const newest = result.rows.reduce<string | null>((m, r) => (!m || r.created_at > m ? r.created_at : m), null);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
       <ConfigNotice />
+      {isLiveList && !result.error && <LiveJobsNotice newestCreatedAt={newest} />}
       <CityDatalist />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -64,7 +69,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SP }) {
         <aside>
           <JobFilters categories={categories} params={params} />
         </aside>
-        <section aria-label="Résultats">
+        <section aria-label="Résultats" data-jl-results className="jl-results">
           {result.error && (
             <Alert variant="error" title="Recherche momentanément indisponible" className="mb-4">
               Vérifiez votre connexion puis réessayez.

@@ -4,15 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { LiveFilterForm } from "@/components/jobs/live-filter-form";
 import { RADIUS_OPTIONS } from "@/lib/maps/places";
 import type { Category } from "@/types/db";
 import type { JobSearchParams } from "@/lib/validations/jobs";
 
-/** Filtres en formulaire GET : fonctionnent sans JavaScript (connexions lentes). */
+/** Filtres instantanés (mise à jour au fil de la saisie) ; restent un formulaire GET qui fonctionne sans JavaScript. */
 export function JobFilters({ categories, params, action = "/jobs" }: { categories: Category[]; params: JobSearchParams; action?: string }) {
   const hasGeo = params.lat !== undefined && params.lng !== undefined;
   return (
-    <form method="get" action={action} className="grid gap-4 rounded-xl border p-4 sm:p-5">
+    <LiveFilterForm action={action} className="grid gap-4 rounded-xl border p-4 sm:p-5">
       <p className="flex items-center gap-2 text-sm font-semibold">
         <SlidersHorizontal className="size-4" /> Filtres
       </p>
@@ -82,6 +83,6 @@ export function JobFilters({ categories, params, action = "/jobs" }: { categorie
           <Link href={action}>Réinitialiser</Link>
         </Button>
       </div>
-    </form>
+    </LiveFilterForm>
   );
 }

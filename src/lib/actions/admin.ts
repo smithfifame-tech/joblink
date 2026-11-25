@@ -6,7 +6,7 @@ import { serverRpc } from "@/lib/supabase/server-rpc";
 import { getAdapter } from "@/lib/payments/registry";
 import { fail, type ActionResult } from "@/lib/errors";
 import { authed, callRpc, invalid } from "./_helpers";
-import { PLATFORM_SETTINGS_TAG } from "@/services/catalog";
+import { CATEGORIES_TAG, PLATFORM_SETTINGS_TAG } from "@/services/catalog";
 
 const uuid = z.string().uuid();
 const note = z.string().trim().max(2000).optional();
@@ -86,6 +86,7 @@ export async function adminSaveCategoryAction(input: unknown): Promise<ActionRes
     await supabase.rpc("log_audit", { p_action: v.id ? "category.updated" : "category.created", p_entity_type: "category", p_entity_id: data.id, p_metadata: row });
     revalidatePath("/admin/categories");
     revalidatePath("/categories");
+    revalidateTag(CATEGORIES_TAG);
     return { ok: true, data: undefined, message: "Catégorie enregistrée." };
   } catch (e) {
     return fail(e);

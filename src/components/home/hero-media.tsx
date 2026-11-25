@@ -167,6 +167,8 @@ export function HeroMedia({ photo }: { photo: Photo }) {
             src={photo.src}
             alt=""
             fill
+            priority
+            quality={70}
             sizes="100vw"
             className={cn("object-cover object-[50%_60%]", phase === "photo" && "animate-[kenburns_18s_ease-out_both]")}
           />

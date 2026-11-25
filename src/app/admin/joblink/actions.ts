@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { JOBS_TAG } from "@/services/catalog";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { OWNER_PATH, ownerApi, ownerLogin, ownerLogout } from "@/lib/owner-panel/server";
@@ -43,6 +44,8 @@ async function guarded(fn: () => Promise<unknown>): Promise<{ ok: boolean; error
   try {
     await fn();
     revalidatePath(OWNER_PATH);
+    // Masquage / suspension depuis le panneau propriétaire : les listes publiques doivent suivre tout de suite
+    revalidateTag(JOBS_TAG);
     return { ok: true };
   } catch (e) {
     if (e instanceof Error && e.message === "SESSION_EXPIRED") redirect(OWNER_PATH);

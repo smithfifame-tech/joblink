@@ -1,5 +1,6 @@
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { JOBS_TAG } from "@/services/catalog";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { fail, type ActionResult } from "@/lib/errors";
 import { rateLimit } from "@/lib/security/rate-limit";
@@ -44,6 +45,8 @@ export async function callRpc<T = unknown>(
     const { data, error } = await supabase.rpc(fn, args);
     if (error) return fail(error);
     for (const p of opts.revalidate ?? []) revalidatePath(p, "layout");
+    // Les listes publiques de missions sont en cache (CDN + données) : on les invalide dès qu'une mission change.
+    if ((opts.revalidate ?? []).some((p) => p === "/" || p.includes("job"))) revalidateTag(JOBS_TAG);
     return { ok: true, data: data as T, message: opts.message };
   } catch (e) {
     return fail(e);
